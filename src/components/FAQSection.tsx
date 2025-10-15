@@ -172,16 +172,16 @@ export default function FAQSection() {
 
           </div>
 
-          <div className="text-center mt-12">
+          {/* <div className="text-center mt-12">
             <p className="text-muted-foreground mb-6">
               ¿Tenés más preguntas? Estamos para ayudarte
             </p>
             <Link href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Tengo%20preguntas%20sobre%20DigiBot">
-              <button className="bracket-button">
+              <button className="bracket-button-dark">
                 Contactanos
               </button>
             </Link>
-          </div>
+          </div> */}
         </div>
       </div>
     </section>
