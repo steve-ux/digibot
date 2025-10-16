@@ -175,4 +175,8 @@
 .menu-footer:hover {
   color: #ff3131;
 }
+.resaltados {
+  color: #ff5757;
+}
+html { scroll-behavior: smooth; }
 

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FaFacebookF, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import FAQSection from "../components/FAQSection";
+import Footer from "../components/Footer";
 
 export default function Home() {
   return (
@@ -19,15 +20,12 @@ export default function Home() {
               />
             </div>
             <div className="hidden md:flex items-center space-x-8">
-              <Link href="#" className="bracket-link">
+            <a href="/#digibot" className="bracket-link">
+                ¿Qué es?
+              </a>
+              <a href="/#planes" className="bracket-link">
                 Planes
-              </Link>
-              <Link href="#" className="bracket-link">
-                Nosotros
-              </Link>
-              <Link href="#" className="bracket-link">
-                Soporte
-              </Link>
+              </a>              
               <Link
                 href="https://panel.digibotlatam.com/"
                 target="_blank"
@@ -92,14 +90,18 @@ export default function Home() {
             </h1>
             <br></br>
 
-            <Link href="#">
+            <Link
+              href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20tener%20mi%20bot"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <button className="bracket-button-dark">CHATEAR CON IA</button>
             </Link>
           </div>
         </section>
 
         {/* Feature Sections */}
-        <section className="py-20">
+        <section id="digibot" className="py-20">
           <div className="container mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
               {/* Descubre Section - h2 > h3 > p > img */}
@@ -260,7 +262,11 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <Link href="#">
+              <Link
+                href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20tener%20mi%20bot"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <button className="bracket-button-dark">QUIERO MI BOT</button>
               </Link>
               <br />
@@ -435,10 +441,19 @@ export default function Home() {
         </section>
 
         {/* Pricing Section */}
-        <section className="py-20 bg-background">
+        <section id="planes" className="relative py-20 overflow-hidden">
+          {/* Video de fondo */}
+          <video
+            src="/eKoddex glitch.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-10"
+          />
           <div className="container mx-auto px-6">
             <div className="text-center mb-16">
-              <h2 className="text-4xl font-inter-tight font-bold mb-4">
+              <h2 className="text-4xl font-inter-tight font-bold mb-4 scroll-mt-24">
                 Nuestros Planes
               </h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -488,7 +503,12 @@ export default function Home() {
                   </li>
                 </ul>
 
-                <Link href="#" className="block mt-auto">
+                <Link
+                  href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20el%20plan%20básico"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-auto"
+                >
                   <button className="w-full bracket-button-dark">
                     Elegir Básico
                   </button>
@@ -555,7 +575,12 @@ export default function Home() {
                   </li>
                 </ul>
 
-                <Link href="#" className="block mt-auto">
+                <Link
+                  href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20el%20plan%20premium"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-auto"
+                >
                   <button className="w-full bracket-button-dark text-accent-foreground border-accent">
                     Elegir Premium
                   </button>
@@ -586,7 +611,9 @@ export default function Home() {
                   </li>
                   <li className="flex items-center">
                     <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">WhatsApp + Instagram + Facebook</span>
+                    <span className="text-sm">
+                      WhatsApp + Instagram + Facebook
+                    </span>
                   </li>
                   <li className="flex items-center">
                     <span className="text-accent mr-3">✓</span>
@@ -618,24 +645,38 @@ export default function Home() {
                   </li>
                 </ul>
 
-                <Link href="#" className="block mt-auto">
+                <Link
+                  href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20el%20plan%20Plus+"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-auto"
+                >
                   <button className="w-full bracket-button-dark">
                     Elegir Plus+
                   </button>
                 </Link>
               </div>
-            </div><br/><br/><br/>
+            </div>
+            <br />
+            <br />
+            <br />
 
             <div className="text-center mt-12">
               <p className="text-muted-foreground mb-6">
                 ¿Necesitas un plan personalizado? Contáctanos para crearte una
                 solución a medida
               </p>
-              <Link href="#">
+              <Link
+                href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20quisiera%20conocer%20m%C3%A1s%20sobre%20sus%20planes"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <button className="bracket-button-dark">
                   Contactar Ventas
                 </button>
-              </Link><br/><br/>
+              </Link>
+              <br />
+              <br />
             </div>
           </div>
         </section>
@@ -671,7 +712,12 @@ export default function Home() {
               Comenzá a explorar el poder de la IA en tu negocio
             </h2>
             <br />
-            <Link href="#" className="bracket-button-dark inline-block">
+            <Link
+              href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20quisiera%20agendar%20una%20cita"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bracket-button-dark inline-block"
+            >
               Agendá una cita
             </Link>
           </div>
@@ -718,7 +764,7 @@ export default function Home() {
               </a>
 
               <a
-                href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20su%20web%20y%20quisiera%20conocer%20m%C3%A1s%20sobre%20su%20chatbot"
+                href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20quisiera%20conocer%20m%C3%A1s%20sobre%20su%20chatbot"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="WhatsApp"
@@ -730,23 +776,24 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="text-center text-sm text-gray-500 mb-6">
-            © 2025 DigiBot LATAM. All rights reserved.
-          </div>
+          <Footer />
 
           <div className="flex flex-wrap justify-center space-x-6 text-sm font-mono">
             <Link href="mailto:info@digibotlatam.com">
               <span className="menu-footer">[ info@digibotlatam.com ]</span>
             </Link>
-            <Link href="#">
+            <Link href="/terminos-y-condiciones">
               <span className="menu-footer">[ términos & condiciones ]</span>
             </Link>
-            <Link href="#">
+            <Link href="/politica-de-privacidad">
+              <span className="menu-footer">[ política de privacidad ]</span>
+            </Link>
+            <Link href="https://digibotlatam.com/">
               <span className="menu-footer">[ inicio ]</span>
             </Link>
-            <Link href="#">
+            <a href="/#planes">
               <span className="menu-footer">[ planes ]</span>
-            </Link>
+            </a>
             <Link
               href="https://panel.digibotlatam.com/"
               target="_blank"
