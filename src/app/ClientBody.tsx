@@ -12,18 +12,23 @@ export default function Home() {
         <div className="container mx-auto px-6 py-4">
           <nav className="flex items-center justify-between">
             <div className="flex items-center">
+            <Link href="https://digibotlatam.com/">
               <Image
                 src="/DigiBot Logo stext.png"
                 alt="DigiBot Logo"
                 width={100}
                 height={100}
               />
+              </Link>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-            <a href="/#digibot" className="bracket-link">
+            <Link href="https://digibotlatam.com/">
+                <span className="bracket-link">INICIO</span>
+              </Link>
+            <a href="#digibot" className="bracket-link">
                 ¿Qué es?
               </a>
-              <a href="/#planes" className="bracket-link">
+              <a href="#planes" className="bracket-link">
                 Planes
               </a>              
               <Link
@@ -733,16 +738,18 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center">
-              <Image
+            <Link href="https://digibotlatam.com/">
+            <Image
                 src="/DigiBot Logo new.png"
                 alt="DigiBot Logo"
                 width={150}
                 height={150}
               />
+              </Link>
             </div>
             <div className="flex items-center gap-3">
               <a
-                href="https://www.facebook.com/ekoddex"
+                href="https://www.facebook.com/people/DigiBot/61581166522492/"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Facebook"
@@ -753,7 +760,7 @@ export default function Home() {
               </a>
 
               <a
-                href="https://www.instagram.com/ekoddex"
+                href="https://www.instagram.com/digibot_ok/"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram"
@@ -779,21 +786,18 @@ export default function Home() {
           <Footer />
 
           <div className="flex flex-wrap justify-center space-x-6 text-sm font-mono">
+          <Link href="https://digibotlatam.com/">
+              <span className="menu-footer">[ inicio ]</span>
+            </Link>
             <Link href="mailto:info@digibotlatam.com">
               <span className="menu-footer">[ info@digibotlatam.com ]</span>
             </Link>
             <Link href="/terminos-y-condiciones">
-              <span className="menu-footer">[ términos & condiciones ]</span>
+              <span className="menu-footer">[ t&c ]</span>
             </Link>
             <Link href="/politica-de-privacidad">
               <span className="menu-footer">[ política de privacidad ]</span>
             </Link>
-            <Link href="https://digibotlatam.com/">
-              <span className="menu-footer">[ inicio ]</span>
-            </Link>
-            <a href="/#planes">
-              <span className="menu-footer">[ planes ]</span>
-            </a>
             <Link
               href="https://panel.digibotlatam.com/"
               target="_blank"
