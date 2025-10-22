@@ -13,13 +13,13 @@ export default function FAQSection() {
   };
 
   return (
-    <section className="py-20 bg-card">
+    <section className="py-20" style={{ backgroundColor: '#f2f2f2' }}>
       <div className="container mx-auto px-6">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-inter-tight font-bold mb-4">
+          <h2 className="text-4xl font-inter-tight font-bold mb-4 text-[#1c1c1c]">
             Preguntas Frecuentes
           </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-xl max-w-2xl mx-auto text-[#1c1c1c]">
             Resolvemos las dudas más comunes sobre DigiBot
           </p>
         </div>

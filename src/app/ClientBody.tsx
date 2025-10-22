@@ -12,25 +12,25 @@ export default function Home() {
         <div className="container mx-auto px-6 py-4">
           <nav className="flex items-center justify-between">
             <div className="flex items-center">
-            <Link href="https://digibotlatam.com/">
-              <Image
-                src="/DigiBot Logo stext.png"
-                alt="DigiBot Logo"
-                width={100}
-                height={100}
-              />
+              <Link href="https://digibotlatam.com/">
+                <Image
+                  src="/DigiBot Logo stext.png"
+                  alt="DigiBot Logo"
+                  width={100}
+                  height={100}
+                />
               </Link>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-            <Link href="https://digibotlatam.com/">
+              <Link href="https://digibotlatam.com/">
                 <span className="bracket-link">INICIO</span>
               </Link>
-            <a href="#digibot" className="bracket-link">
+              <a href="#digibot" className="bracket-link">
                 ¿Qué es?
               </a>
               <a href="#planes" className="bracket-link">
                 Planes
-              </a>              
+              </a>
               <Link
                 href="https://panel.digibotlatam.com/"
                 target="_blank"
@@ -106,20 +106,24 @@ export default function Home() {
         </section>
 
         {/* Feature Sections */}
-        <section id="digibot" className="py-20">
+        <section
+          id="digibot"
+          className="py-20"
+          style={{ backgroundColor: "#f2f2f2" }}
+        >
           <div className="container mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
               {/* Descubre Section - h2 > h3 > p > img */}
               <div>
                 <div className="flex items-center mb-4">
-                  <h2 className="text-2xl font-inter-tight font-bold">
+                  <h2 className="text-2xl font-inter-tight font-bold text-[#1c1c1c]">
                     DigiBot
                   </h2>
                 </div>
-                <h3 className="text-xl font-medium mb-4">
+                <h3 className="text-xl font-medium mb-4 text-[#1c1c1c]">
                   Inteligencia Artificial para empresas
                 </h3>
-                <p className="text-muted-foreground mb-6">
+                <p className="mb-6 text-[#1c1c1c]">
                   Desarrollamos una plataforma con Inteligencia Artificial en la
                   que entrenamos por vos una IA que asesora a tus clientes a
                   través de WhatsApp, Instagram y Facebook, escucha audios, lee
@@ -149,13 +153,13 @@ export default function Home() {
                 />
               </div>
               <div>
-                <h2 className="text-2xl font-inter-tight font-bold mb-4">
+                <h2 className="text-2xl font-inter-tight font-bold mb-4 text-[#1c1c1c]">
                   CMR
                 </h2>
-                <h3 className="text-xl font-medium mb-4">
+                <h3 className="text-xl font-medium mb-4 text-[#1c1c1c]">
                   Un panel propio para gestionar tus conversaciones
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-[#1c1c1c]">
                   Controlá los diálogos que tiene el bot con tus clientes y tomá
                   el control cuando el usuario quiera ser derivado con un
                   humano. Podés encender y apagar el bot cuando vos quieras.
@@ -165,13 +169,13 @@ export default function Home() {
 
               {/* Operate Section - h2 > h3 > p > img */}
               <div>
-                <h2 className="text-2xl font-inter-tight font-bold mb-4">
+                <h2 className="text-2xl font-inter-tight font-bold mb-4 text-[#1c1c1c]">
                   WhatsApp
                 </h2>
-                <h3 className="text-xl font-medium mb-4">
+                <h3 className="text-xl font-medium mb-4 text-[#1c1c1c]">
                   Obtendrás un número habilitado por META Business
                 </h3>
-                <p className="text-muted-foreground mb-6">
+                <p className="mb-6 text-[#1c1c1c]">
                   Te ofrecemos un perfil de WhatsApp único para vos con el
                   nombre de tu empresa aprobado por META, de esta forma la
                   información del usuario siempre estará segura, respaldada y
@@ -201,13 +205,13 @@ export default function Home() {
                 />
               </div>
               <div>
-                <h2 className="text-2xl font-inter-tight font-bold mb-4">
+                <h2 className="text-2xl font-inter-tight font-bold mb-4 text-[#1c1c1c]">
                   Ventas
                 </h2>
-                <h3 className="text-xl font-medium mb-4">
+                <h3 className="text-xl font-medium mb-4 text-[#1c1c1c]">
                   Vendé en automático tus productos online día y noche
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-[#1c1c1c]">
                   Entrenamos el bot para uso exclusivo de tu marca y lo nutrimos
                   de una base de datos pensada y ajustada a cada necesidad.
                   Mantenemos actualizado tu bot con datos en tiempo real de tus
@@ -237,7 +241,7 @@ export default function Home() {
           <div className="relative z-10 container mx-auto px-6">
             <h2 className="text-4xl font-inter-tight font-bold text-center mb-4">
               ¿Por qué DigiBot?
-            </h2>
+            </h2><br />
 
             <div className="max-w-4xl mx-auto">
               <div className="flex items-center justify-between mb-8">
@@ -267,21 +271,19 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <Link
-                href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20tener%20mi%20bot"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <button className="bracket-button-dark">QUIERO MI BOT</button>
-              </Link>
+
               <br />
               <br />
 
               {/* DigiBot vs Otros Chats */}
               <div>
+                <br />
+                <h3 className="text-xl font-medium mb-2">Chatbots comunes</h3>
+                <p className="text-muted-foreground">
+                    Respuestas genéricas en base a un árbol de decisión.</p>
                 <div className="p-6">
                   <Image
-                    src="/DigiBot vs Otros chatbots.png"
+                    src="/Chats comunes.png"
                     alt="Base de datos"
                     width={500}
                     height={300}
@@ -289,25 +291,50 @@ export default function Home() {
                   />
                 </div>
               </div>
+              <div>
+                <br />
+                <h3 className="text-xl font-medium mb-2">Chat DigiBot</h3>
+                <p className="text-muted-foreground">
+                    Respuestas inteligentes, personalizadas y adaptadas a tu negocio.</p><br />
+                <div className="p-6">
+                  <Image
+                    src="/DigiBot chat.png"
+                    alt="Base de datos"
+                    width={500}
+                    height={300}
+                    className="w-full h-auto rounded-lg mb-6"
+                  />
+                </div>
+              </div>
+              <Link
+                href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20tener%20mi%20bot"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <button className="bracket-button-dark">QUIERO MI BOT</button>
+              </Link>
             </div>
           </div>
         </section>
 
-        {/* Explore Models */}
-        <section className="py-20">
+        {/* Beneficios de DigiBot */}
+        <section className="py-20" style={{ backgroundColor: "#f2f2f2" }}>
+          <br />
           <div className="container mx-auto px-6">
-            <h2 className="text-4xl font-inter-tight font-bold text-center mb-16">
+            <h2 className="text-4xl font-inter-tight font-bold text-center mb-16 text-[#1c1c1c]">
               Beneficios de DigiBot
             </h2>
+            <br />
+            <br />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* Gemini */}
               <Link
                 href="#"
-                className="group bg-card border border-border rounded-lg p-6 hover:border-accent transition-colors"
+                className="group bg-card border border-border rounded-lg p-6 transition-colors"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-inter-tight font-bold">
+                  <h3 className="text-xl font-inter-tight font-bold text-[#66ff99]">
                     Responde como humano
                   </h3>
                   <Image
@@ -328,10 +355,10 @@ export default function Home() {
               {/* Imagen */}
               <Link
                 href="#"
-                className="group bg-card border border-border rounded-lg p-6 hover:border-accent transition-colors"
+                className="group bg-card border border-border rounded-lg p-6 transition-colors"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-inter-tight font-bold">
+                  <h3 className="text-xl font-inter-tight font-bold text-[#66ff99]">
                     Comunicación efectiva
                   </h3>
                   <Image
@@ -351,10 +378,10 @@ export default function Home() {
               {/* Veo */}
               <Link
                 href="#"
-                className="group bg-card border border-border rounded-lg p-6 hover:border-accent transition-colors"
+                className="group bg-card border border-border rounded-lg p-6 transition-colors"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-inter-tight font-bold">
+                  <h3 className="text-xl font-inter-tight font-bold text-[#66ff99]">
                     Reduce cargas de trabajo
                   </h3>
                   <Image
@@ -375,10 +402,10 @@ export default function Home() {
               {/* Gemini TTS */}
               <Link
                 href="#"
-                className="group bg-card border border-border rounded-lg p-6 hover:border-accent transition-colors"
+                className="group bg-card border border-border rounded-lg p-6 transition-colors"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-inter-tight font-bold">
+                  <h3 className="text-xl font-inter-tight font-bold text-[#66ff99]">
                     Automatización de ventas
                   </h3>
                   <Image
@@ -398,10 +425,10 @@ export default function Home() {
               {/* Gemini Native Audio */}
               <Link
                 href="#"
-                className="group bg-card border border-border rounded-lg p-6 hover:border-accent transition-colors"
+                className="group bg-card border border-border rounded-lg p-6 transition-colors"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-inter-tight font-bold">
+                  <h3 className="text-xl font-inter-tight font-bold text-[#66ff99]">
                     Análisis y estadísticas
                   </h3>
                   <Image
@@ -422,10 +449,10 @@ export default function Home() {
               {/* Gemma */}
               <Link
                 href="#"
-                className="group bg-card border border-border rounded-lg p-6 hover:border-accent transition-colors"
+                className="group bg-card border border-border rounded-lg p-6 transition-colors"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-inter-tight font-bold">
+                <div className="flex items-center justify-between mb-4 ">
+                  <h3 className="text-xl font-inter-tight font-bold text-[#66ff99]">
                     Seguimiento para más ventas
                   </h3>
                   <Image
@@ -443,6 +470,10 @@ export default function Home() {
               </Link>
             </div>
           </div>
+          <br />
+          <br />
+          <br />
+          <br />
         </section>
 
         {/* Pricing Section */}
@@ -457,54 +488,54 @@ export default function Home() {
             className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-10"
           />
           <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-inter-tight font-bold mb-4 scroll-mt-24">
+            <div className="text-center mb-12 md:mb-16">
+              <h2 className="text-3xl md:text-4xl font-inter-tight font-bold mb-4 scroll-mt-24">
                 Nuestros Planes
               </h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
                 Elige el plan que mejor se adapte a las necesidades de tu
                 negocio
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto px-4">
               {/* Plan Básico */}
-              <div className="bg-card border border-border rounded-lg p-8 relative hover:border-accent/50 transition-all duration-300 hover:shadow-lg h-full flex flex-col">
+              <div className="bg-card border border-border rounded-lg p-6 md:p-8 relative hover:border-[#66ff99] transition-all duration-300 hover:shadow-lg h-full flex flex-col">
                 <div className="text-center mb-6">
-                  <h3 className="text-2xl font-inter-tight font-bold mb-2">
+                  <h3 className="text-xl md:text-2xl font-inter-tight font-bold mb-2">
                     Básico
                   </h3>
                   <p className="text-muted-foreground text-sm mb-4">
                     Perfecto para empezar
                   </p>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold titulo font-dsdigital">
+                    <span className="text-3xl md:text-4xl font-bold titulo font-dsdigital">
                       $99
                     </span>
-                    <span className="text-muted-foreground">/mes</span>
+                    <span className="text-muted-foreground text-sm md:text-base">/mes</span>
                   </div>
                 </div>
 
-                <ul className="space-y-4 mb-8">
+                <ul className="space-y-3 md:space-y-4 mb-6 md:mb-8">
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Hasta 1,000 mensajes/mes</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Hasta 1,000 mensajes/mes</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">WhatsApp Business</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">WhatsApp Business</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Panel de control básico</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Panel de control básico</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Soporte por email</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Soporte por email</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Entrenamiento básico de IA</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Entrenamiento básico de IA</span>
                   </li>
                 </ul>
 
@@ -521,62 +552,62 @@ export default function Home() {
               </div>
 
               {/* Plan Premium - Destacado */}
-              <div className="bg-card border-2 border-accent rounded-lg p-8 relative hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-full flex flex-col">
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-accent text-accent-foreground px-4 py-1 rounded-full text-sm font-medium">
+              <div className="bg-card border-2 border-[#66ff99] rounded-lg p-6 md:p-8 relative hover:shadow-xl transition-all duration-300 transform hover:scale-105 h-full flex flex-col">
+                <div className="absolute -top-3 md:-top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-[#66ff99] text-black px-3 md:px-4 py-1 rounded-full text-xs md:text-sm font-medium">
                     Más Popular
                   </span>
                 </div>
 
                 <div className="text-center mb-6">
-                  <h3 className="text-2xl font-inter-tight font-bold mb-2">
+                  <h3 className="text-xl md:text-2xl font-inter-tight font-bold mb-2">
                     Premium
                   </h3>
                   <p className="text-muted-foreground text-sm mb-4">
                     Ideal para marcas en crecimiento
                   </p>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold titulo font-dsdigital">
+                    <span className="text-3xl md:text-4xl font-bold titulo font-dsdigital">
                       $199
                     </span>
-                    <span className="text-muted-foreground">/mes</span>
+                    <span className="text-muted-foreground text-sm md:text-base">/mes</span>
                   </div>
                 </div>
 
-                <ul className="space-y-4 mb-8">
+                <ul className="space-y-3 md:space-y-4 mb-6 md:mb-8">
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Hasta 5,000 mensajes/mes</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Hasta 5,000 mensajes/mes</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">
                       WhatsApp + Instagram + Facebook
                     </span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Panel de control avanzado</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Panel de control avanzado</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Soporte prioritario</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Soporte prioritario</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">IA personalizada avanzada</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">IA personalizada avanzada</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Estadísticas detalladas</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Estadísticas detalladas</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Integración con CRM</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Integración con CRM</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Soporta audios e imágenes</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Soporta audios e imágenes</span>
                   </li>
                 </ul>
 
@@ -586,67 +617,67 @@ export default function Home() {
                   rel="noopener noreferrer"
                   className="block mt-auto"
                 >
-                  <button className="w-full bracket-button-dark text-accent-foreground border-accent">
+                  <button className="w-full bracket-button-dark text-black border-[#66ff99]">
                     Elegir Premium
                   </button>
                 </Link>
               </div>
 
               {/* Plan Plus+ */}
-              <div className="bg-card border border-border rounded-lg p-8 relative hover:border-accent/50 transition-all duration-300 hover:shadow-lg h-full flex flex-col">
+              <div className="bg-card border border-border rounded-lg p-6 md:p-8 relative hover:border-[#66ff99] transition-all duration-300 hover:shadow-lg h-full flex flex-col">
                 <div className="text-center mb-6">
-                  <h3 className="text-2xl font-inter-tight font-bold mb-2">
+                  <h3 className="text-xl md:text-2xl font-inter-tight font-bold mb-2">
                     Plus+
                   </h3>
                   <p className="text-muted-foreground text-sm mb-4">
                     Para empresas grandes
                   </p>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold titulo font-dsdigital">
+                    <span className="text-3xl md:text-4xl font-bold titulo font-dsdigital">
                       $399
                     </span>
-                    <span className="text-muted-foreground">/mes</span>
+                    <span className="text-muted-foreground text-sm md:text-base">/mes</span>
                   </div>
                 </div>
 
-                <ul className="space-y-4 mb-8">
+                <ul className="space-y-3 md:space-y-4 mb-6 md:mb-8">
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Mensajes ilimitados</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Mensajes ilimitados</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">
                       WhatsApp + Instagram + Facebook
                     </span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Panel empresarial completo</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Panel empresarial completo</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Soporte 24/7</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Soporte 24/7</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">IA ultra personalizada</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">IA ultra personalizada</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Analytics avanzados</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Analytics avanzados</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Genera links de ventas</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Genera links de ventas</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Soporta audios e imágenes</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Soporta audios e imágenes</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="text-accent mr-3">✓</span>
-                    <span className="text-sm">Entrenamiento personalizado</span>
+                    <span className="text-[#66ff99] mr-3">✓</span>
+                    <span className="text-xs md:text-sm">Entrenamiento personalizado</span>
                   </li>
                 </ul>
 
@@ -738,13 +769,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center">
-            <Link href="https://digibotlatam.com/">
-            <Image
-                src="/DigiBot Logo new.png"
-                alt="DigiBot Logo"
-                width={150}
-                height={150}
-              />
+              <Link href="https://digibotlatam.com/">
+                <Image
+                  src="/DigiBot Logo new.png"
+                  alt="DigiBot Logo"
+                  width={150}
+                  height={150}
+                />
               </Link>
             </div>
             <div className="flex items-center gap-3">
@@ -753,7 +784,7 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Facebook"
-                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-accent/50 hover:text-accent/50 transition-colors duration-200"
+                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-[#66ff99] hover:text-[#66ff99] transition-colors duration-200"
               >
                 <FaFacebookF className="text-[14px]" />
                 <span className="sr-only menu-footer">Facebook</span>
@@ -764,7 +795,7 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram"
-                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-accent/50 hover:text-accent/50 transition-colors duration-200"
+                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-[#66ff99] hover:text-[#66ff99] transition-colors duration-200"
               >
                 <FaInstagram className="text-[16px]" />
                 <span className="sr-only">Instagram</span>
@@ -775,7 +806,7 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="WhatsApp"
-                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-accent/50 hover:text-accent/50 transition-colors duration-200 "
+                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-[#66ff99] hover:text-[#66ff99] transition-colors duration-200 "
               >
                 <FaWhatsapp className="text-[16px]" />
                 <span className="sr-only">WhatsApp</span>
@@ -786,7 +817,7 @@ export default function Home() {
           <Footer />
 
           <div className="flex flex-wrap justify-center space-x-6 text-sm font-mono">
-          <Link href="https://digibotlatam.com/">
+            <Link href="https://digibotlatam.com/">
               <span className="menu-footer">[ inicio ]</span>
             </Link>
             <Link href="mailto:info@digibotlatam.com">
