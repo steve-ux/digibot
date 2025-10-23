@@ -278,41 +278,32 @@ export default function Home() {
               {/* DigiBot vs Otros Chats */}
               <div>
                 <br />
-                <h3 className="text-xl font-medium mb-2">Chatbots comunes</h3>
+                <h3 className="text-xl font-medium mb-2">Chatbots comunes vs DigiBot</h3>
                 <p className="text-muted-foreground">
-                    Respuestas genéricas en base a un árbol de decisión.</p>
+                    Un bot sin IA genera respuestas genéricas en base a un árbol de decisión, y cuando no sabe que responder desvaría.</p>
+                    <p className="text-muted-foreground">DigiBot utiliza los últimos modelos de IA para generar respuestas inteligentes, personalizadas y adaptadas a tu negocio.</p>
+             <br />
+             <br />
                 <div className="p-6">
                   <Image
-                    src="/Chats comunes.png"
-                    alt="Base de datos"
-                    width={500}
-                    height={300}
-                    className="w-full h-auto rounded-lg mb-6"
+                    src="/Digibot vs otros.png"
+                    alt="Chatbots comunes vs DigiBot"
+                    width={1400}
+                    height={1400}
                   />
                 </div>
               </div>
-              <div>
-                <br />
-                <h3 className="text-xl font-medium mb-2">Chat DigiBot</h3>
-                <p className="text-muted-foreground">
-                    Respuestas inteligentes, personalizadas y adaptadas a tu negocio.</p><br />
-                <div className="p-6">
-                  <Image
-                    src="/DigiBot chat.png"
-                    alt="Base de datos"
-                    width={500}
-                    height={300}
-                    className="w-full h-auto rounded-lg mb-6"
-                  />
-                </div>
+             <br />
+             <br />
+              <div className="flex justify-center">
+                <Link
+                  href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20tener%20mi%20bot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <button className="bracket-button-dark">QUIERO MI BOT</button>
+                </Link>
               </div>
-              <Link
-                href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20estoy%20interesado%20en%20tener%20mi%20bot"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <button className="bracket-button-dark">QUIERO MI BOT</button>
-              </Link>
             </div>
           </div>
         </section>
