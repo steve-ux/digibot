@@ -28,6 +28,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" className={`${inter.variable} ${interTight.variable} ${jetBrainsMono.variable} ${dsdigital.variable} dark`}>
       <head>
         <Script crossOrigin="anonymous" src="//unpkg.com/same-runtime/dist/index.global.js" />
+        {/* Google tag (gtag.js) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-GXPMFGD4NM"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-GXPMFGD4NM');
+          `}
+        </Script>
       </head>
       <body suppressHydrationWarning className="antialiased">
         {children}
