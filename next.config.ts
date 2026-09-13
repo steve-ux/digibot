@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export", // <- genera /out al hacer build
+  output: "standalone", // build para Docker/Node server (ya no export estático: la web ahora tiene backend)
   images: {
-    unoptimized: true, // necesario para export estático
+    unoptimized: true,
     domains: [
       "source.unsplash.com",
       "images.unsplash.com",

@@ -1,51 +1,12 @@
-import Link from "next/link";
-import Image from "next/image";
+import Header from "../../components/Header";
 import Footer from "../../components/Footer";
-import { FaFacebookF, FaInstagram, FaWhatsapp } from "react-icons/fa";
 
 export default function TerminosYCondiciones() {
   return (
-    <main className="min-h-screen py-20 px-6 bg-background text-foreground">
-      <header className="border-b border-border/10">
-        <div className="container mx-auto px-6 py-4">
-          <nav className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Link href="https://digibotlatam.com/">
-              <Image
-                src="/DigiBot Logo stext.png"
-                alt="DigiBot Logo"
-                width={100}
-                height={100}
-              />
-              </Link>
-            </div>
-            <div className="hidden md:flex items-center space-x-8">
-            <Link href="https://digibotlatam.com/">
-              <span className="bracket-link">INICIO</span>
-            </Link>
-              <a href="https://digibotlatam.com/#digibot" className="bracket-link">
-                ¿Qué es?
-              </a>
-              <a href="https://digibotlatam.com/#planes" className="bracket-link">
-                Planes
-              </a>
-              <Link
-                href="https://panel.digibotlatam.com/"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="bracket-link"
-              >
-                Panel de cliente
-              </Link>
-            </div>
-          </nav>
-        </div>
-        <br />
-        <br />
-        <br />
-      </header>
+    <main className="min-h-screen bg-background text-foreground">
+      <Header />
 
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6 py-20 px-6">
         <h1 className="text-4xl font-inter-tight font-bold mb-8">
           Términos y Condiciones
         </h1>
@@ -265,85 +226,9 @@ export default function TerminosYCondiciones() {
             </p>
           </section>
         </div>
-        <br />
-        <br />
-        <br />
       </div>
 
-      <footer className="px-6 py-12">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center">
-            <Link href="https://digibotlatam.com/">
-            <Image
-                src="/DigiBot Logo new.png"
-                alt="DigiBot Logo"
-                width={150}
-                height={150}
-              />
-              </Link>
-            </div>
-            <div className="flex items-center gap-3">
-              <a
-                href="https://www.facebook.com/people/DigiBot/61581166522492/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Facebook"
-                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-accent/50 hover:text-accent/50 transition-colors duration-200"
-              >
-                <FaFacebookF className="text-[14px]" />
-                <span className="sr-only menu-footer">Facebook</span>
-              </a>
-
-              <a
-                href="https://www.instagram.com/digibot_ok/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Instagram"
-                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-accent/50 hover:text-accent/50 transition-colors duration-200"
-              >
-                <FaInstagram className="text-[16px]" />
-                <span className="sr-only">Instagram</span>
-              </a>
-
-              <a
-                href="https://api.whatsapp.com/send?phone=5492615131119&text=Hola!%20Visit%C3%A9%20DigiBot%20y%20quisiera%20conocer%20m%C3%A1s%20sobre%20su%20chatbot"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="WhatsApp"
-                className="group w-9 h-9 inline-flex items-center justify-center rounded-full border border-border text-foreground hover:border-accent/50 hover:text-accent/50 transition-colors duration-200 "
-              >
-                <FaWhatsapp className="text-[16px]" />
-                <span className="sr-only">WhatsApp</span>
-              </a>
-            </div>
-          </div>
-
-          <Footer />
-
-          <div className="flex flex-wrap justify-center space-x-6 text-sm font-mono">
-          <Link href="https://digibotlatam.com/">
-              <span className="menu-footer">[ inicio ]</span>
-            </Link>
-            <Link href="mailto:info@digibotlatam.com">
-              <span className="menu-footer">[ info@digibotlatam.com ]</span>
-            </Link>
-            <Link href="/terminos-y-condiciones">
-              <span className="menu-footer">[ t&c ]</span>
-            </Link>
-            <Link href="/politica-de-privacidad">
-              <span className="menu-footer">[ política de privacidad ]</span>
-            </Link>
-            <Link
-              href="https://panel.digibotlatam.com/"
-              target="_blank"
-              rel="noreferrer noopener"
-            >
-              <span className="menu-footer">[ panel del cliente ]</span>
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }

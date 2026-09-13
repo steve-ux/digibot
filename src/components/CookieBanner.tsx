@@ -134,32 +134,32 @@ export default function CookieBanner() {
   if (!showBanner) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-lg">
       <div className="container mx-auto px-4 py-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex-1">
-            <h3 className="text-sm font-medium text-gray-900 mb-1">
+            <h3 className="text-sm font-poppins font-medium text-foreground mb-1">
               🍪 Cookies
             </h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Usamos cookies esenciales para el funcionamiento del sitio. 
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Usamos cookies esenciales para el funcionamiento del sitio.
               Las cookies de analítica son opcionales y nos ayudan a mejorar tu experiencia.
             </p>
           </div>
-          
+
           <div className="flex gap-2 flex-shrink-0">
             <button
               onClick={handleReject}
               disabled={isLoading}
-              className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+              className="px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             >
               {isLoading ? '...' : 'Solo esenciales'}
             </button>
-            
+
             <button
               onClick={handleAccept}
               disabled={isLoading}
-              className="px-4 py-2 text-xs font-medium text-white bg-[#66ff99] hover:bg-[#5ce68a] rounded transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-xs font-semibold text-secondary-foreground bg-secondary hover:opacity-90 rounded-full transition-opacity disabled:opacity-50"
             >
               {isLoading ? '...' : 'Aceptar todas'}
             </button>

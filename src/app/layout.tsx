@@ -1,32 +1,38 @@
 import type { Metadata } from "next";
-import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
-import localFont from "next/font/local";
+import { Inter, Inter_Tight, JetBrains_Mono, Poppins } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
 import CookieBanner from "../components/CookieBanner";
+import ThemeScript from "../components/ThemeScript";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const interTight = Inter_Tight({ variable: "--font-inter-tight", subsets: ["latin"] });
 const jetBrainsMono = JetBrains_Mono({ variable: "--font-jetbrains-mono", subsets: ["latin"] });
-
-const dsdigital = localFont({
-  src: [
-    { path: "./fonts/DSDigital/DS-Digital-Bold.woff",  weight: "400", style: "normal" },
-    { path: "./fonts/DSDigital/DS-Digital-Bold.woff2", weight: "700", style: "normal" },
-  ],
-  variable: "--font-dsdigital",
-  display: "swap",
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
   title: "DigiBot - LATAM | We Connect",
   description: "AI-Powered Chat Agent for Business",
+  icons: {
+    icon: "/digibot-avatar-redes-favicon.png",
+    shortcut: "/digibot-avatar-redes-favicon.png",
+    apple: "/digibot-avatar-redes-favicon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${inter.variable} ${interTight.variable} ${jetBrainsMono.variable} ${dsdigital.variable} dark`}>
+    <html
+      lang="es"
+      suppressHydrationWarning
+      className={`${inter.variable} ${interTight.variable} ${jetBrainsMono.variable} ${poppins.variable}`}
+    >
       <head>
+        <ThemeScript />
         <Script crossOrigin="anonymous" src="//unpkg.com/same-runtime/dist/index.global.js" />
         {/* Google Tag Manager */}
         <Script id="google-tag-manager" strategy="afterInteractive">
