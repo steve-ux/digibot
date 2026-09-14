@@ -39,8 +39,8 @@ export default function PanelCrm() {
                   key={item.label}
                   className={
                     item.active
-                      ? "rounded-[10px] bg-primary px-3 py-2.5 text-[13px] font-semibold text-white"
-                      : "rounded-[10px] px-3 py-2.5 text-[13px] text-muted-foreground"
+                      ? "break-words rounded-[10px] bg-primary px-2 py-2.5 text-[11px] font-semibold text-white sm:px-3 sm:text-[13px]"
+                      : "break-words rounded-[10px] px-2 py-2.5 text-[11px] text-muted-foreground sm:px-3 sm:text-[13px]"
                   }
                 >
                   {item.label}

@@ -5,10 +5,10 @@ export default function CtaBanner() {
     <section className="bg-muted px-5 pb-24 pt-16 sm:px-8 sm:pt-20">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-12 rounded-[32px] bg-darksurface px-6 py-12 sm:px-12 sm:py-16 md:py-20">
         <div className="min-w-[320px] flex-1">
-          <h2 className="max-w-[640px] font-poppins text-3xl font-extrabold leading-tight tracking-tight text-darksurface-foreground sm:text-4xl lg:text-[46px]">
+          <h2 className="max-w-[640px] font-poppins text-2xl font-extrabold leading-tight tracking-tight text-darksurface-foreground sm:text-4xl lg:text-[46px]">
             Comenzá a explorar el poder de la IA en tu negocio
           </h2>
-          <p className="mt-5 text-lg text-neutral-400">
+          <p className="mt-4 text-base text-neutral-400 sm:mt-5 sm:text-lg">
             Contanos qué vendés y te mostramos el bot funcionando.
           </p>
         </div>
