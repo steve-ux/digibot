@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createTemplate, isMetaConfigured, listTemplates } from "@/lib/meta-whatsapp";
 
 export async function GET() {
-  if (!isMetaConfigured()) {
+  if (!(await isMetaConfigured())) {
     return NextResponse.json(
       { error: "not_configured", message: "Faltan las credenciales de WhatsApp Business en el servidor." },
       { status: 503 }
@@ -21,7 +21,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isMetaConfigured()) {
+  if (!(await isMetaConfigured())) {
     return NextResponse.json(
       { error: "not_configured", message: "Faltan las credenciales de WhatsApp Business en el servidor." },
       { status: 503 }

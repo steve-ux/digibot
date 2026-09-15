@@ -75,7 +75,7 @@ export default function Footer() {
             Instagram
           </a>
           <a
-            href="https://www.facebook.com/people/DigiBot/61581166522492/"
+            href="https://www.facebook.com/profile.php?id=61594108541947"
             target="_blank"
             rel="noreferrer noopener"
             className="text-[15px] text-muted-foreground hover:text-primary"

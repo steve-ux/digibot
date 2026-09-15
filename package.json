@@ -7,12 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "bunx tsc --noEmit && next lint",
-    "format": "bunx biome format --write"
+    "format": "bunx biome format --write",
+    "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
+    "mysql2": "^3.24.4",
     "next": "^15.3.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

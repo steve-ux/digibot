@@ -5,7 +5,7 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ name: string }> }
 ) {
-  if (!isMetaConfigured()) {
+  if (!(await isMetaConfigured())) {
     return NextResponse.json(
       { error: "not_configured", message: "Faltan las credenciales de WhatsApp Business en el servidor." },
       { status: 503 }
