@@ -11,6 +11,7 @@ import Comparison from "../components/sections/Comparison";
 import Benefits from "../components/sections/Benefits";
 import Pricing from "../components/sections/Pricing";
 import CtaBanner from "../components/sections/CtaBanner";
+import ContactForm from "../components/sections/ContactForm";
 
 export default function Home() {
   return (
@@ -26,6 +27,7 @@ export default function Home() {
         <Comparison />
         <Benefits />
         <Pricing />
+        <ContactForm />
         <FAQSection />
         <CtaBanner />
       </main>
