@@ -83,9 +83,11 @@ export default function Footer() {
             Facebook
           </a>
           <a
-            href={WA_LINKS.general}
+            href={WA_LINKS.footer}
             target="_blank"
             rel="noreferrer noopener"
+            data-track="whatsapp"
+            data-location="footer_whatsapp"
             className="text-[15px] text-muted-foreground hover:text-primary"
           >
             WhatsApp

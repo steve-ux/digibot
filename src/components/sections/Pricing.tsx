@@ -178,6 +178,8 @@ export default async function Pricing() {
                   href={planHref(plan.planKey)}
                   target="_blank"
                   rel="noreferrer noopener"
+                  data-track="whatsapp"
+                  data-location={`plan_${plan.planKey}`}
                   className="block rounded-full bg-white py-3.5 text-center font-poppins text-[15px] font-bold text-primary transition-colors hover:bg-secondary hover:text-secondary-foreground"
                 >
                   {plan.ctaLabel}
@@ -212,6 +214,8 @@ export default async function Pricing() {
                   href={planHref(plan.planKey)}
                   target="_blank"
                   rel="noreferrer noopener"
+                  data-track="whatsapp"
+                  data-location={`plan_${plan.planKey}`}
                   className="block rounded-full border border-border bg-muted py-3.5 text-center font-poppins text-[15px] font-semibold text-foreground transition-colors hover:border-primary hover:text-primary"
                 >
                   {plan.ctaLabel}
@@ -239,6 +243,8 @@ export default async function Pricing() {
             href={WA_LINKS.ventas}
             target="_blank"
             rel="noreferrer noopener"
+            data-track="whatsapp"
+            data-location="contactar_ventas"
             className="rounded-full bg-destructive px-6 py-3.5 font-poppins text-[15px] font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90"
           >
             Contactar ventas

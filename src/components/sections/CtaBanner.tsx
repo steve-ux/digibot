@@ -17,14 +17,18 @@ export default function CtaBanner() {
             href={WA_LINKS.cita}
             target="_blank"
             rel="noreferrer noopener"
+            data-track="whatsapp"
+            data-location="agendar_cita"
             className="rounded-full bg-secondary px-8 py-[18px] font-poppins text-base font-bold text-secondary-foreground transition-colors hover:opacity-90"
           >
             Agendá una cita
           </a>
           <a
-            href={WA_LINKS.general}
+            href={WA_LINKS.chatIa}
             target="_blank"
             rel="noreferrer noopener"
+            data-track="whatsapp"
+            data-location="chatear_con_ia"
             className="rounded-full border border-white/20 px-8 py-[18px] font-poppins text-base font-semibold text-white transition-colors hover:border-white"
           >
             Chatear con la IA

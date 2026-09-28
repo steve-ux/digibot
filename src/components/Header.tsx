@@ -47,6 +47,8 @@ export default function Header() {
             href={WA_LINKS.general}
             target="_blank"
             rel="noreferrer noopener"
+            data-track="whatsapp"
+            data-location="hero_quiero_mi_bot"
             className="rounded-full bg-primary px-5 py-3 font-poppins text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Quiero mi bot

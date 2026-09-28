@@ -106,6 +106,8 @@ export default function ContactForm() {
             />
             <button
               type="submit"
+              data-track="lead_form"
+              data-location="formulario_lo_quiero"
               disabled={status === "loading"}
               className="rounded-full bg-secondary px-8 py-[18px] font-poppins text-base font-bold text-secondary-foreground transition-colors hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >

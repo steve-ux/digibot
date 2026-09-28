@@ -44,9 +44,11 @@ export default function Hero() {
 
           <div className="mt-9 flex flex-wrap gap-3.5">
             <a
-              href={WA_LINKS.general}
+              href={WA_LINKS.chatIa}
               target="_blank"
               rel="noreferrer noopener"
+              data-track="whatsapp"
+              data-location="chatear_con_ia"
               className="rounded-full bg-primary px-7 py-4 font-poppins text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Chatear con la IA
