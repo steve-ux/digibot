@@ -1,9 +1,14 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import Footer from "@/components/Footer";
+
+const NAV_LINKS = [
+  { href: "/admin/plantillas", label: "Plantillas de WhatsApp" },
+  { href: "/admin/bandeja", label: "Bandeja" },
+];
 
 export default function AdminShell({
   breadcrumb,
@@ -13,6 +18,7 @@ export default function AdminShell({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -23,7 +29,7 @@ export default function AdminShell({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-background/85 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-[1200px] items-center gap-4 px-6 py-4">
+        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-4 px-6 py-4">
           <Link href="/admin/plantillas" className="flex items-center gap-2.5">
             <Logo size={28} />
             <span className="font-poppins text-lg font-extrabold text-foreground">
@@ -39,9 +45,25 @@ export default function AdminShell({
             {breadcrumb}
           </span>
 
+          <nav className="ml-auto flex items-center gap-1">
+            {NAV_LINKS.map((link) => {
+              const active = pathname.startsWith(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                    active ? "text-primary" : "text-muted-foreground hover:text-primary"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
           <Link
             href="/"
-            className="ml-auto text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             Ver sitio
           </Link>

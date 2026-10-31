@@ -25,7 +25,25 @@ interface ConnectionRow extends RowDataPacket {
   access_token_enc: string;
 }
 
-export async function getDefaultConnection(): Promise<WhatsAppConnection | null> {
+// La conexión casi nunca cambia y se consulta en cada request a Meta (a veces
+// varias veces por request): se cachea un rato en memoria para no ir a la VPS cada vez.
+const CONNECTION_TTL_MS = 60_000;
+let cachedConnection: { at: number; promise: Promise<WhatsAppConnection | null> } | null = null;
+
+export function getDefaultConnection(): Promise<WhatsAppConnection | null> {
+  if (cachedConnection && Date.now() - cachedConnection.at < CONNECTION_TTL_MS) {
+    return cachedConnection.promise;
+  }
+  const promise = fetchDefaultConnection();
+  cachedConnection = { at: Date.now(), promise };
+  // Un error no se cachea: el próximo request vuelve a intentar.
+  promise.catch(() => {
+    if (cachedConnection?.promise === promise) cachedConnection = null;
+  });
+  return promise;
+}
+
+async function fetchDefaultConnection(): Promise<WhatsAppConnection | null> {
   if (!isDbConfigured()) return null;
 
   const pool = getPool();

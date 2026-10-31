@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
@@ -8,8 +8,7 @@ import StatusBadge from "@/components/admin/StatusBadge";
 import TemplatePreviewModal from "@/components/admin/TemplatePreviewModal";
 import type { WhatsAppTemplate } from "@/lib/meta-whatsapp";
 
-type LoadState =
-  | { kind: "loading" }
+export type PlantillasLoadState =
   | { kind: "not_configured"; message: string }
   | { kind: "error"; message: string }
   | { kind: "ready"; templates: WhatsAppTemplate[] };
@@ -19,16 +18,19 @@ function bodyPreview(template: WhatsAppTemplate) {
   return body && "text" in body ? body.text : "—";
 }
 
-export default function PlantillasPage() {
-  const [state, setState] = useState<LoadState>({ kind: "loading" });
+// El estado inicial llega renderizado desde el server (page.tsx), así la tabla se
+// ve al instante. Después se revalida contra Meta en segundo plano sin tapar nada.
+export default function PlantillasView({ initialState }: { initialState: PlantillasLoadState }) {
+  const [state, setState] = useState<PlantillasLoadState>(initialState);
+  const [reloading, setReloading] = useState(false);
   const [search, setSearch] = useState("");
   const [deletingName, setDeletingName] = useState<string | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<WhatsAppTemplate | null>(null);
 
-  const load = async () => {
-    setState({ kind: "loading" });
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setReloading(true);
     try {
-      const res = await fetch("/api/templates");
+      const res = await fetch("/api/templates?fresh=1", { cache: "no-store" });
       const data = await res.json();
 
       if (res.status === 503) {
@@ -36,18 +38,27 @@ export default function PlantillasPage() {
         return;
       }
       if (!res.ok) {
-        setState({ kind: "error", message: data.message || "No se pudo cargar la lista de plantillas." });
+        // Una revalidación silenciosa que falla no pisa una lista que ya se ve bien.
+        setState((prev) =>
+          silent && prev.kind === "ready"
+            ? prev
+            : { kind: "error", message: data.message || "No se pudo cargar la lista de plantillas." }
+        );
         return;
       }
       setState({ kind: "ready", templates: data.templates });
     } catch {
-      setState({ kind: "error", message: "No se pudo conectar con el servidor." });
+      setState((prev) =>
+        silent && prev.kind === "ready" ? prev : { kind: "error", message: "No se pudo conectar con el servidor." }
+      );
+    } finally {
+      setReloading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    load();
-  }, []);
+    load({ silent: true });
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (state.kind !== "ready") return [];
@@ -66,7 +77,10 @@ export default function PlantillasPage() {
         alert(data.message || "No se pudo eliminar la plantilla.");
         return;
       }
-      await load();
+      setState((prev) =>
+        prev.kind === "ready" ? { ...prev, templates: prev.templates.filter((t) => t.name !== name) } : prev
+      );
+      load({ silent: true });
     } finally {
       setDeletingName(null);
     }
@@ -114,16 +128,13 @@ export default function PlantillasPage() {
           </div>
           <p className="mt-2 text-sm text-muted-foreground">{state.message}</p>
           <button
-            onClick={load}
-            className="mt-4 rounded-full border border-border px-4 py-2 text-sm font-medium hover:border-primary hover:text-primary"
+            onClick={() => load()}
+            disabled={reloading}
+            className="mt-4 disabled:opacity-50 rounded-full border border-border px-4 py-2 text-sm font-medium hover:border-primary hover:text-primary"
           >
-            Reintentar
+            {reloading ? "Reintentando…" : "Reintentar"}
           </button>
         </div>
-      )}
-
-      {state.kind === "loading" && (
-        <div className="mt-10 text-muted-foreground">Cargando plantillas…</div>
       )}
 
       {state.kind === "ready" && (
