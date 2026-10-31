@@ -57,6 +57,9 @@ export default function Footer() {
           <Link href="/politica-de-privacidad" className="text-[15px] text-muted-foreground hover:text-primary">
             Política de privacidad
           </Link>
+          <Link href="/eliminacion-de-datos" className="text-[15px] text-muted-foreground hover:text-primary">
+            Eliminación de datos
+          </Link>
         </div>
 
         <div className="flex flex-col gap-3">

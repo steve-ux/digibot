@@ -195,6 +195,11 @@ export default function PoliticaDePrivacidad() {
               </a>{" "}
               indicando tu solicitud y un medio de contacto. Te responderemos
               dentro de los plazos razonables conforme a la normativa vigente.
+              Para solicitar la eliminación de tus datos, seguí las{" "}
+              <a href="/eliminacion-de-datos" className="underline">
+                instrucciones para la eliminación de datos
+              </a>
+              .
             </p>
           </section>
 
