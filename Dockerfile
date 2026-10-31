@@ -10,6 +10,9 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Versión que muestra el footer; la manda docker-compose desde APP_VERSION del .env.
+ARG APP_VERSION=""
+ENV APP_VERSION=$APP_VERSION
 RUN npm run build
 
 FROM node:20-alpine AS runner

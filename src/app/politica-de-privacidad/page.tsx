@@ -152,6 +152,25 @@ export default function PoliticaDePrivacidad() {
 
           <section>
             <h2 className="text-xl font-semibold mb-2">
+              Solicitudes de autoridades públicas
+            </h2>
+            <p className="mb-2">
+              Si recibimos un pedido de una autoridad pública sobre datos
+              personales de usuarios:
+            </p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>Revisamos su legalidad antes de responder.</li>
+              <li>Lo impugnamos cuando lo consideramos ilegítimo.</li>
+              <li>Entregamos solo la información mínima necesaria.</li>
+              <li>
+                Documentamos cada solicitud, nuestra respuesta y su fundamento
+                legal.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold mb-2">
               Transferencias internacionales
             </h2>
             <p>

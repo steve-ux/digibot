@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone", // build para Docker/Node server (ya no export estático: la web ahora tiene backend)
+  // Se inyecta en el build (también en el bundle del navegador, el Footer se usa en
+  // componentes cliente). En la VPS la setea scripts/deploy.sh en el .env.
+  env: {
+    APP_VERSION: process.env.APP_VERSION ?? "",
+  },
   images: {
     unoptimized: true,
     domains: [

@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # El .env no entra al build (.dockerignore): la versión se pasa como build arg
+        # para que quede en el footer, incluso en las páginas que se prerenderizan.
+        APP_VERSION: ${APP_VERSION:-}
     image: digibot-web:${APP_VERSION:-latest}
     container_name: digibot-web
     restart: unless-stopped

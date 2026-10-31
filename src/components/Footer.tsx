@@ -4,6 +4,7 @@ import { WA_LINKS } from "@/lib/whatsapp";
 
 export default function Footer() {
   const year = new Date().getFullYear();
+  const version = process.env.APP_VERSION;
 
   return (
     <footer className="mx-auto max-w-[1200px] px-5 py-16 sm:px-8">
@@ -100,6 +101,7 @@ export default function Footer() {
 
       <div className="mt-10 text-sm text-muted-foreground">
         © {year} DigiBot LATAM. Todos los derechos reservados.
+        {version && ` v${version}`}
       </div>
     </footer>
   );
