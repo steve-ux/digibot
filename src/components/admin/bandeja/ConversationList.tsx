@@ -139,6 +139,7 @@ export default function ConversationList({
   onOpen,
   banner,
   empty,
+  channels = CHANNEL_IDS,
 }: {
   conversations: InboxConversation[];
   allConversations: InboxConversation[];
@@ -154,13 +155,15 @@ export default function ConversationList({
   onOpen: (c: InboxConversation) => void;
   banner?: React.ReactNode;
   empty?: React.ReactNode;
+  // Canales visibles para esta persona (chips de filtro)
+  channels?: ChannelId[];
 }) {
   const openCount = (ch: ChannelFilter) =>
     allConversations.filter((c) => c.status !== "resolved" && (ch === "all" || c.channel === ch)).length;
 
   const chips: { id: ChannelFilter; label: string; icon?: string }[] = [
     { id: "all", label: "Todos" },
-    ...CHANNEL_IDS.map((id) => ({ id, label: CHANNELS[id].name, icon: CHANNELS[id].icon })),
+    ...channels.map((id) => ({ id, label: CHANNELS[id].name, icon: CHANNELS[id].icon })),
   ];
 
   return (

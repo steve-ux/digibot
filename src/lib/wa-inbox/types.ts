@@ -2,6 +2,7 @@
 // servidor, así que lo pueden usar tanto las rutas API como los componentes cliente.
 // Las fechas viajan como unix timestamp en segundos.
 
+import type { AttributeValues } from "../crm/attributes";
 import type { ChannelId } from "../crm/channels";
 
 // internal = notas del equipo y avisos del sistema (nunca salen hacia Meta).
@@ -23,6 +24,8 @@ export interface InboxPost {
 
 export interface InboxConversation {
   id: number;
+  // Cuenta (web_clients.id) dueña de la conversación.
+  accountId: number;
   channel: ChannelId;
   phoneNumberId: string;
   waId: string;
@@ -38,7 +41,10 @@ export interface InboxConversation {
   // "IA respondiendo": DigiBot atiende el chat. Tomarlo lo pone en false.
   botActive: boolean;
   assigneeId: number | null;
+  // Nombres de las etiquetas de la cuenta (["Venta", "Turno"]).
   tags: string[];
+  // Atributos propios de la cuenta: { "dni": "30111222", "obra_social": "OSDE" }
+  attributes: AttributeValues;
   note: string;
   createdAt: number;
   sessionCount: number;

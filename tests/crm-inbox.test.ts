@@ -6,14 +6,14 @@ import {
   parseConversationAction,
 } from "@/lib/crm/conversation-actions";
 import { humanizeSendError } from "@/lib/crm/meta-errors";
-import type { CrmUser } from "@/lib/crm/session";
+import type { Actor } from "@/lib/crm/conversation-actions";
 import { MemoryInboxStore } from "@/lib/wa-inbox/memory-store";
 import { InboxSendError, retryFromInbox } from "@/lib/wa-inbox/send";
 import { CUSTOMER_WA_ID, PHONE_NUMBER_ID } from "./helpers/payloads";
 
-const ME: CrmUser = { id: 1, name: "Esteban Maldonado", role: "admin" };
-const SOFIA: CrmUser = { id: 2, name: "Sofía Rivas", role: "agent" };
-const TEAM = [ME, SOFIA];
+const ME: Actor = { id: 1, name: "Esteban Maldonado" };
+const SOFIA: Actor = { id: 2, name: "Sofía Rivas" };
+const TEAM = { team: [ME, SOFIA] };
 const now = () => Math.floor(Date.now() / 1000);
 
 let store: MemoryInboxStore;

@@ -6,6 +6,8 @@ import { Eye } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import StatusBadge from "@/components/admin/StatusBadge";
 import TemplatePreviewModal from "@/components/admin/TemplatePreviewModal";
+import { useAccountId } from "@/components/crm/CrmShell";
+import { accountApi, accountPath } from "@/lib/crm/permissions";
 import type { WhatsAppTemplate } from "@/lib/meta-whatsapp";
 
 export type PlantillasLoadState =
@@ -21,6 +23,7 @@ function bodyPreview(template: WhatsAppTemplate) {
 // El estado inicial llega renderizado desde el server (page.tsx), así la tabla se
 // ve al instante. Después se revalida contra Meta en segundo plano sin tapar nada.
 export default function PlantillasView({ initialState }: { initialState: PlantillasLoadState }) {
+  const accountId = useAccountId();
   const [state, setState] = useState<PlantillasLoadState>(initialState);
   const [reloading, setReloading] = useState(false);
   const [search, setSearch] = useState("");
@@ -30,7 +33,7 @@ export default function PlantillasView({ initialState }: { initialState: Plantil
   const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setReloading(true);
     try {
-      const res = await fetch("/api/templates?fresh=1", { cache: "no-store" });
+      const res = await fetch(`${accountApi(accountId, "plantillas")}?fresh=1`, { cache: "no-store" });
       const data = await res.json();
 
       if (res.status === 503) {
@@ -54,7 +57,7 @@ export default function PlantillasView({ initialState }: { initialState: Plantil
     } finally {
       setReloading(false);
     }
-  }, []);
+  }, [accountId]);
 
   useEffect(() => {
     load({ silent: true });
@@ -71,7 +74,7 @@ export default function PlantillasView({ initialState }: { initialState: Plantil
     if (!confirm(`¿Eliminar la plantilla "${name}"? Esta acción no se puede deshacer.`)) return;
     setDeletingName(name);
     try {
-      const res = await fetch(`/api/templates/${encodeURIComponent(name)}`, { method: "DELETE" });
+      const res = await fetch(accountApi(accountId, `plantillas/${encodeURIComponent(name)}`), { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         alert(data.message || "No se pudo eliminar la plantilla.");
@@ -100,7 +103,7 @@ export default function PlantillasView({ initialState }: { initialState: Plantil
           </p>
         </div>
         <Link
-          href="/admin/plantillas/nueva"
+          href={accountPath(accountId, "plantillas/nueva")}
           className="rounded-full bg-primary px-6 py-3 font-poppins text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
         >
           + Crear nueva plantilla

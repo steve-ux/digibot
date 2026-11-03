@@ -4,7 +4,9 @@
 
 import { MemoryInboxStore } from "../wa-inbox/memory-store";
 import type { InboxConversation, InboxMessage, InboxPost, InboxTemplate } from "../wa-inbox/types";
+import type { AttributeInput, AttributeValues } from "./attributes";
 import type { ChannelId } from "./channels";
+import { MemorySettingsRepo } from "./settings-repo";
 
 export interface DemoMember {
   id: number;
@@ -81,6 +83,7 @@ type SeedConversation = {
   bot?: boolean;
   assignee?: number | null;
   tags?: string[];
+  attributes?: AttributeValues;
   note?: string;
   // Minutos antes de ahora del primer contacto
   sinceAgo: number;
@@ -101,6 +104,7 @@ function seeds(meName: string): SeedConversation[] {
       unread: 0,
       assignee: ME,
       tags: ["Cliente nuevo"],
+      attributes: { dni: "30111222", obra_social: "OSDE" },
       sinceAgo: 23 * H,
       sessions: 1,
       messages: [
@@ -162,6 +166,7 @@ function seeds(meName: string): SeedConversation[] {
       unread: 0,
       assignee: SOFIA.id,
       tags: ["Reclamo"],
+      attributes: { obra_social: "Swiss Medical", cliente_vip: true, fecha_de_compra: "2026-10-22" },
       note: "Compró Aviador dorado el 22/10.",
       sinceAgo: 12 * D,
       sessions: 2,
@@ -214,6 +219,30 @@ function seeds(meName: string): SeedConversation[] {
           text: "¡Hola Valentina! Sí, enviamos a todo el país. Te escribimos por privado con los detalles.",
         },
       ],
+    },
+    {
+      name: "Rocío Salinas",
+      channel: "fbc",
+      unread: 1,
+      sinceAgo: 50,
+      sessions: 1,
+      post: {
+        caption: "¡Llegaron los anteojos de sol 2027! Pasá por cualquier sucursal 😎",
+        likes: 87,
+        comments: 12,
+        thumbnailUrl: null,
+      },
+      messages: [{ ago: 50, by: "in", text: "¿Hacen cuotas sin interés con tarjeta?", type: "comment" }],
+    },
+    {
+      name: "",
+      channel: "th",
+      handle: "@juli.mendez",
+      unread: 1,
+      sinceAgo: 95,
+      sessions: 1,
+      post: { caption: "¿Lentes redondos o cuadrados? Leemos opiniones 👇", likes: 0, comments: 0, thumbnailUrl: null },
+      messages: [{ ago: 95, by: "in", text: "Redondos siempre!! ¿tienen en verde?", type: "comment" }],
     },
     {
       name: "Marcos Díaz",
@@ -273,9 +302,26 @@ const SYSTEM_TEXT: Record<string, (name: string) => string> = {
   "system:resolve": (n) => `${n} resolvió la conversación`,
 };
 
+// Atributos de ejemplo de la cuenta (Configuración y panel del contacto en modo demo).
+export const DEMO_ATTRIBUTES: AttributeInput[] = [
+  { key: "dni", label: "DNI", type: "text", options: [], description: null },
+  { key: "obra_social", label: "Obra social", type: "list", options: ["OSDE", "Swiss Medical", "Galeno", "Particular"], description: null },
+  { key: "fecha_de_compra", label: "Fecha de compra", type: "date", options: [], description: "Última compra en el local" },
+  { key: "cliente_vip", label: "Cliente VIP", type: "checkbox", options: [], description: null },
+];
+
+// Etiquetas y atributos de ejemplo, en memoria.
+export async function buildDemoSettings(accountId: number): Promise<MemorySettingsRepo> {
+  const repo = new MemorySettingsRepo();
+  await repo.seedDefaultLabels(accountId);
+  for (const attribute of DEMO_ATTRIBUTES) await repo.createAttribute(accountId, attribute);
+  return repo;
+}
+
 // Arma un store en memoria con las conversaciones de ejemplo.
-export function buildDemoStore(meName: string): MemoryInboxStore {
+export function buildDemoStore(meName: string, accountId = 1): MemoryInboxStore {
   const store = new MemoryInboxStore();
+  store.defaultAccountId = accountId;
   const now = Math.floor(Date.now() / 1000);
   const at = (ago: number) => now - ago * 60;
 
@@ -290,10 +336,11 @@ export function buildDemoStore(meName: string): MemoryInboxStore {
 
     const conversation: Omit<InboxConversation, "windowSecondsLeft"> = {
       id,
+      accountId,
       channel: seed.channel,
       phoneNumberId: "demo",
       waId: seed.waId ?? `demo-${id}`,
-      contactName: seed.name,
+      contactName: seed.name || null,
       handle: seed.handle ?? null,
       post: seed.post ?? null,
       lastMessagePreview: last?.text ?? null,
@@ -305,6 +352,7 @@ export function buildDemoStore(meName: string): MemoryInboxStore {
       botActive: seed.bot ?? false,
       assigneeId: seed.assignee ?? null,
       tags: seed.tags ?? [],
+      attributes: seed.attributes ?? {},
       note: seed.note ?? "",
       createdAt: at(seed.sinceAgo),
       sessionCount: seed.sessions,
@@ -333,4 +381,23 @@ export function buildDemoStore(meName: string): MemoryInboxStore {
   });
 
   return store;
+}
+
+// Equipo de ejemplo (pantalla Equipo y Métricas en modo demo).
+export interface DemoTeamUser {
+  id: number;
+  name: string;
+  email: string;
+  role: "admin" | "supervisor" | "agent";
+  channels: ChannelId[];
+  status: "invited" | "active" | "disabled";
+}
+
+export function demoUsers(meName: string): DemoTeamUser[] {
+  return [
+    { id: 1, name: meName, email: "vos@opticasol.com", role: "admin", channels: ["wa", "ig", "igc", "fb", "fbc", "th"], status: "active" },
+    { id: 2, name: SOFIA.name, email: "sofia@opticasol.com", role: "agent", channels: ["wa", "ig", "igc"], status: "active" },
+    { id: 3, name: DIEGO.name, email: "diego@opticasol.com", role: "supervisor", channels: ["wa", "ig", "igc", "fb", "fbc", "th"], status: "active" },
+    { id: 4, name: "Camila Ortega", email: "camila@opticasol.com", role: "agent", channels: ["fb", "fbc"], status: "invited" },
+  ];
 }

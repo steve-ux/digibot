@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "@/components/crm/Icon";
 import { useToast } from "@/components/crm/Toast";
+import { isCommentChannel } from "@/lib/crm/channels";
 import type { InboxConversation, InboxMessage } from "@/lib/wa-inbox/types";
 import type { InboxApi, SendPayload } from "./api";
 import Avatar from "./Avatar";
@@ -328,25 +329,39 @@ export default function ChatPanel({
         </div>
       )}
 
-      {c.channel === "igc" && c.post && (
+      {isCommentChannel(c.channel) && c.post && (
         <div className="flex shrink-0 items-center gap-3.5 border-b border-crm-border bg-crm-card px-4 py-3 md:px-[22px]">
           {c.post.thumbnailUrl ? (
-            <img src={c.post.thumbnailUrl} alt="Foto de la publicación" className="h-14 w-14 shrink-0 rounded-[10px] object-cover" />
+            <img src={c.post.thumbnailUrl} alt="Imagen de la publicación" className="h-14 w-14 shrink-0 rounded-[10px] object-cover" />
           ) : (
             <div
               aria-hidden
               className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[10px] bg-[repeating-linear-gradient(135deg,var(--crm-border)_0_6px,var(--crm-surf)_6px_12px)] text-center text-[9px] font-semibold text-crm-muted"
             >
-              foto del post
+              {c.channel === "th" ? "hilo" : "foto del post"}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold text-crm-muted">Comentó en tu publicación</div>
-            <div className="mt-0.5 truncate text-sm text-crm-ink">{c.post.caption}</div>
+            <div className="text-xs font-semibold text-crm-muted">
+              {c.channel === "th" ? "Respondió tu hilo" : "Comentó en tu publicación"}
+            </div>
+            <div className="mt-0.5 truncate text-sm text-crm-ink">{c.post.caption || "Publicación sin texto"}</div>
           </div>
-          <div className="hidden shrink-0 text-[13px] text-crm-muted md:block">
-            {c.post.likes} me gusta · {c.post.comments} comentarios
-          </div>
+          {(c.post.likes > 0 || c.post.comments > 0) && (
+            <div className="hidden shrink-0 text-[13px] text-crm-muted md:block">
+              {c.post.likes} {c.channel === "fbc" ? "reacciones" : "me gusta"} · {c.post.comments} comentarios
+            </div>
+          )}
+          {c.post.permalink && (
+            <a
+              href={c.post.permalink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-xs font-semibold text-crm-primary hover:text-crm-primary-hover"
+            >
+              Ver
+            </a>
+          )}
         </div>
       )}
 

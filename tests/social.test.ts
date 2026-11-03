@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pickErrorCode } from "@/lib/crm/meta-errors";
 import { replyAvailability } from "@/lib/crm/reply-window";
-import type { SocialAccount } from "@/lib/meta-social/accounts";
-import { describeSocialMessage, processSocialWebhook } from "@/lib/meta-social/webhook";
+import type { SocialAccount, SocialChannel } from "@/lib/meta-social/accounts";
+import { describeSocialMessage, processSocialWebhook, processThreadsWebhook } from "@/lib/meta-social/webhook";
 import { MemoryInboxStore } from "@/lib/wa-inbox/memory-store";
 import { InboxSendError, sendFromInbox } from "@/lib/wa-inbox/send";
 
@@ -23,6 +23,18 @@ const FB_ACCOUNT: SocialAccount = {
   source: "env",
 };
 const IG_ACCOUNT: SocialAccount = { ...FB_ACCOUNT, channel: "ig", accountId: IG_ID, displayName: "@opticasol" };
+const TH_ID = "25000000000000";
+const TH_ACCOUNT: SocialAccount = {
+  channel: "th",
+  accountId: TH_ID,
+  pageId: null,
+  displayName: "@opticasol",
+  accessToken: "threads-token",
+  apiVersion: "v1.0",
+  source: "env",
+};
+const accountFor = async (channel: SocialChannel) =>
+  channel === "fb" ? FB_ACCOUNT : channel === "th" ? TH_ACCOUNT : IG_ACCOUNT;
 
 let store: MemoryInboxStore;
 let profile: ReturnType<typeof vi.fn>;
@@ -32,9 +44,9 @@ function deps() {
   return {
     store,
     appId: APP_ID,
-    getAccount: async (channel: "ig" | "fb") => (channel === "fb" ? FB_ACCOUNT : IG_ACCOUNT),
+    getAccount: accountFor,
     profile,
-    media,
+    post: media,
   };
 }
 
@@ -63,7 +75,7 @@ describe("processSocialWebhook: Messenger", () => {
       deps()
     );
 
-    const [conversation] = await store.listConversations(10);
+    const [conversation] = await store.listConversations(1, 10);
     expect(conversation).toMatchObject({
       channel: "fb",
       phoneNumberId: PAGE_ID,
@@ -83,7 +95,7 @@ describe("processSocialWebhook: Messenger", () => {
     await processSocialWebhook(payload, deps());
     await processSocialWebhook(payload, deps());
     expect(store.messages).toHaveLength(1);
-    expect((await store.listConversations(1))[0].unreadCount).toBe(1);
+    expect((await store.listConversations(1, 1))[0].unreadCount).toBe(1);
   });
 
   it("ignora los ecos de esta app y guarda los escritos desde la app de Meta", async () => {
@@ -133,7 +145,7 @@ describe("processSocialWebhook: Instagram", () => {
       }),
       deps()
     );
-    expect((await store.listConversations(1))[0]).toMatchObject({
+    expect((await store.listConversations(1, 1))[0]).toMatchObject({
       channel: "ig",
       waId: IGSID,
       contactName: "Martina Gómez",
@@ -155,7 +167,7 @@ describe("processSocialWebhook: Instagram", () => {
     await processSocialWebhook(comment("C1", "Precio de la segunda foto?"), deps());
     await processSocialWebhook(comment("C2", "Y en negro?"), deps());
 
-    const conversations = await store.listConversations(10);
+    const conversations = await store.listConversations(1, 10);
     expect(conversations).toHaveLength(1);
     expect(conversations[0]).toMatchObject({
       channel: "igc",
@@ -182,9 +194,76 @@ describe("processSocialWebhook: Instagram", () => {
   });
 });
 
+describe("processSocialWebhook: comentarios de Facebook", () => {
+  const feed = (value: Record<string, unknown>) => ({
+    object: "page",
+    entry: [{ id: PAGE_ID, time: now(), changes: [{ field: "feed", value }] }],
+  });
+
+  it("los comentarios nuevos abren un hilo fbc con el nombre de quien comenta", async () => {
+    media.mockResolvedValue({ mediaId: "P1", caption: "Anteojos 2027", likes: 87, comments: 12, thumbnailUrl: null, permalink: null });
+    await processSocialWebhook(
+      feed({ item: "comment", verb: "add", comment_id: "P1_C1", post_id: "P1", message: "¿Cuotas?", from: { id: "F1", name: "Rocío Salinas" }, created_time: now() }),
+      deps()
+    );
+    expect((await store.listConversations(1, 1))[0]).toMatchObject({
+      channel: "fbc",
+      waId: "F1:P1",
+      contactName: "Rocío Salinas",
+      post: { caption: "Anteojos 2027", likes: 87 },
+    });
+    expect(store.messages[0]).toMatchObject({ type: "comment", wamid: "P1_C1", body: "¿Cuotas?" });
+  });
+
+  it("ignora ediciones, reacciones y comentarios de la propia página", async () => {
+    await processSocialWebhook(feed({ item: "comment", verb: "edited", comment_id: "C", post_id: "P", from: { id: "F1" } }), deps());
+    await processSocialWebhook(feed({ item: "reaction", verb: "add", post_id: "P", from: { id: "F1" } }), deps());
+    await processSocialWebhook(feed({ item: "comment", verb: "add", comment_id: "C2", post_id: "P", from: { id: PAGE_ID } }), deps());
+    expect(store.conversations).toHaveLength(0);
+  });
+});
+
+describe("processThreadsWebhook", () => {
+  const reply = (username: string, id = "T2") => ({
+    app_id: APP_ID,
+    topic: "moderate",
+    target_id: TH_ID,
+    time: now(),
+    values: [
+      {
+        field: "replies",
+        value: {
+          id,
+          username,
+          text: "Redondos siempre!!",
+          timestamp: new Date().toISOString(),
+          replied_to: { id: "T1" },
+          root_post: { id: "T1", owner_id: TH_ID, username: "opticasol" },
+        },
+      },
+    ],
+  });
+
+  it("cada respuesta abre un hilo th por persona y publicación", async () => {
+    media.mockResolvedValue({ mediaId: "T1", caption: "¿Redondos o cuadrados?", likes: 0, comments: 0, thumbnailUrl: null, permalink: null });
+    await processThreadsWebhook(reply("juli.mendez"), deps());
+    expect((await store.listConversations(1, 1))[0]).toMatchObject({
+      channel: "th",
+      waId: "@juli.mendez:T1",
+      handle: "@juli.mendez",
+      post: { caption: "¿Redondos o cuadrados?" },
+    });
+  });
+
+  it("ignora las respuestas de la propia cuenta", async () => {
+    await processThreadsWebhook(reply("opticasol", "T3"), deps());
+    expect(store.conversations).toHaveLength(0);
+  });
+});
+
 describe("envío por Messenger e Instagram", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
-  const getAccount = async (channel: "ig" | "fb") => (channel === "fb" ? FB_ACCOUNT : IG_ACCOUNT);
+  const getAccount = accountFor;
 
   beforeEach(() => {
     // Un Response nuevo por llamada (el body se puede leer una sola vez).
@@ -242,6 +321,46 @@ describe("envío por Messenger e Instagram", () => {
     const priv = await sendFromInbox(id, { type: "text", body: "Sale $52.000", replyMode: "private" }, { store, getAccount });
     expect(priv.saved).toMatchObject({ type: "private_reply", wamid: "m_sent" });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ recipient: { comment_id: "C1" }, message: { text: "Sale $52.000" } });
+  });
+
+  it("comentarios de Facebook: público con /comments y privado por la página", async () => {
+    const id = await store.upsertConversation(PAGE_ID, "F1:P1", "Rocío", { channel: "fbc" });
+    await store.insertMessage({ conversationId: id, wamid: "P1_C1", direction: "in", type: "comment", body: "?", status: "received", messageAt: now() - 60 });
+    await store.recordActivity(id, { preview: "?", at: now() - 60, inbound: true });
+
+    await sendFromInbox(id, { type: "text", body: "¡Sí!", replyMode: "public" }, { store, getAccount });
+    expect(fetchMock.mock.calls[0][0]).toBe("https://graph.facebook.com/v23.0/P1_C1/comments");
+    await sendFromInbox(id, { type: "text", body: "Te paso info", replyMode: "private" }, { store, getAccount });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ recipient: { comment_id: "P1_C1" } });
+  });
+
+  it("Threads: crea el contenedor de la respuesta y lo publica", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      new Response(JSON.stringify({ id: url.endsWith("/threads") ? "container-1" : "T9" }), { status: 200 })
+    );
+    const id = await store.upsertConversation(TH_ID, "@juli:T1", null, { channel: "th", handle: "@juli" });
+    await store.insertMessage({ conversationId: id, wamid: "T2", direction: "in", type: "comment", body: "?", status: "received", messageAt: now() - 60 });
+    await store.recordActivity(id, { preview: "?", at: now() - 60, inbound: true });
+
+    const { saved } = await sendFromInbox(id, { type: "text", body: "¡Tenemos en verde!", replyMode: "public" }, { store, getAccount });
+
+    expect(saved).toMatchObject({ status: "sent", wamid: "T9", type: "comment_reply" });
+    const [createUrl, createInit] = fetchMock.mock.calls[0];
+    expect(createUrl).toBe(`https://graph.threads.net/v1.0/${TH_ID}/threads`);
+    expect(Object.fromEntries(new URLSearchParams(createInit.body))).toEqual({
+      media_type: "TEXT",
+      text: "¡Tenemos en verde!",
+      reply_to_id: "T2",
+    });
+    expect(fetchMock.mock.calls[1][0]).toBe(`https://graph.threads.net/v1.0/${TH_ID}/threads_publish`);
+  });
+
+  it("Threads no permite responder por privado", async () => {
+    const id = await store.upsertConversation(TH_ID, "@juli:T1", null, { channel: "th" });
+    await store.recordActivity(id, { preview: "?", at: now() - 60, inbound: true });
+    await expect(
+      sendFromInbox(id, { type: "text", body: "Hola", replyMode: "private" }, { store, getAccount })
+    ).rejects.toMatchObject({ code: "window_closed" });
   });
 
   it("guarda el subcódigo de Meta para mostrar el error correcto", async () => {

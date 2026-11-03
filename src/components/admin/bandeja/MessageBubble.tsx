@@ -8,11 +8,11 @@ const BUBBLE = "rounded-[18px] px-3.5 py-2.5 text-[15px] leading-[1.45]";
 const TEXT = "whitespace-pre-wrap break-words [text-wrap:pretty]";
 
 // Etiqueta sobre la burbuja según el tipo (comentarios, plantillas…).
-function typeLabel(m: UiMessage): string | null {
+function typeLabel(m: UiMessage, channel: ChannelId): string | null {
   if (m.templateName) return `Plantilla · ${m.templateName}`;
   switch (m.type) {
     case "comment":
-      return "Comentario";
+      return channel === "th" ? "Respuesta en tu hilo" : "Comentario";
     case "comment_reply":
       return "Respuesta pública";
     case "private_reply":
@@ -90,7 +90,7 @@ export default function MessageBubble({
 }) {
   const time = formatTime(m.messageAt);
   const body = prettyBody(m.body, m.type);
-  const label = typeLabel(m);
+  const label = typeLabel(m, channel);
 
   if (m.author === "system") {
     return <div className="self-center px-2 py-1 text-center text-xs font-medium text-crm-muted">{systemText(m, meName)}</div>;

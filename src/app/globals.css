@@ -134,6 +134,8 @@
     --crm-ch-ig: #d62976;
     --crm-ch-igc: #fa7e1e;
     --crm-ch-fb: #7b3cff;
+    --crm-ch-fbc: #1877f2;
+    --crm-ch-th: #1c1c1c;
   }
 
   .dark {
@@ -171,6 +173,7 @@
     --crm-error-border: #5b2121;
     --crm-overlay: rgba(0, 0, 0, 0.6);
     --crm-chat-wa: #0b141a;
+    --crm-ch-th: #d4d4d4;
   }
 }
 

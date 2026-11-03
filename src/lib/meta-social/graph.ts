@@ -1,12 +1,15 @@
-// Llamadas a la Graph API para Messenger e Instagram (API con inicio de sesión
-// de Facebook, usando el token de la página). Server-only.
+// Llamadas a la Graph API para Messenger, Instagram, Facebook y Threads. Server-only.
+// Messenger/Instagram/Facebook usan el token de la página (API con inicio de sesión
+// de Facebook); Threads usa graph.threads.net con su propio token.
 //
 // Endpoints:
 //   DM (Messenger e Instagram) ........ POST /{page-id}/messages
-//   Respuesta privada a comentario .... POST /{page-id}/messages  { recipient: { comment_id } }
+//   Respuesta privada a comentario .... POST /{page-id}/messages  { recipient: { comment_id } }  (IG y FB)
 //   Respuesta pública a comentario IG . POST /{comment-id}/replies
+//   Respuesta pública a comentario FB . POST /{comment-id}/comments
+//   Respuesta en Threads .............. POST /{user-id}/threads (reply_to_id) + POST /{user-id}/threads_publish
 //   Perfil del contacto ............... GET  /{psid | igsid}
-//   Publicación de IG ................. GET  /{media-id}
+//   Publicación ....................... GET  /{media-id} (IG) · /{post-id} (FB) · /{thread-id} (Threads)
 
 import { MetaApiError, MetaConfigError } from "../meta-whatsapp";
 import type { SocialAccount } from "./accounts";
@@ -19,7 +22,8 @@ async function socialFetch<T>(account: SocialAccount, path: string, init?: Reque
       "La cuenta no tiene un token de acceso. Volvé a conectarla desde Canales."
     );
   }
-  const res = await fetch(`https://graph.facebook.com/${account.apiVersion}${path}`, {
+  const host = account.channel === "th" ? "https://graph.threads.net" : "https://graph.facebook.com";
+  const res = await fetch(`${host}/${account.apiVersion}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${account.accessToken}`,
@@ -52,6 +56,11 @@ export interface SendResult {
 // responda una persona con la etiqueta HUMAN_AGENT (requiere ese permiso aprobado).
 export type MessagingWindow = "standard" | "human_agent";
 
+function requirePage(account: SocialAccount) {
+  if (!account.pageId) throw new MetaConfigError("La cuenta no tiene una página de Facebook vinculada.");
+  return account.pageId;
+}
+
 export async function sendDirectMessage(
   account: SocialAccount,
   recipientId: string,
@@ -62,7 +71,7 @@ export async function sendDirectMessage(
     window === "human_agent"
       ? { recipient: { id: recipientId }, messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT", message: { text } }
       : { recipient: { id: recipientId }, messaging_type: "RESPONSE", message: { text } };
-  const data = await socialFetch<{ message_id?: string }>(account, `/${account.pageId}/messages`, {
+  const data = await socialFetch<{ message_id?: string }>(account, `/${requirePage(account)}/messages`, {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -70,7 +79,7 @@ export async function sendDirectMessage(
 }
 
 export async function sendPrivateReply(account: SocialAccount, commentId: string, text: string): Promise<SendResult> {
-  const data = await socialFetch<{ message_id?: string }>(account, `/${account.pageId}/messages`, {
+  const data = await socialFetch<{ message_id?: string }>(account, `/${requirePage(account)}/messages`, {
     method: "POST",
     body: JSON.stringify({ recipient: { comment_id: commentId }, message: { text } }),
   });
@@ -129,6 +138,71 @@ export async function fetchMedia(account: SocialAccount, mediaId: string): Promi
     comments: data.comments_count ?? 0,
     // En videos/reels media_url es el video: para la miniatura sirve thumbnail_url.
     thumbnailUrl: data.thumbnail_url ?? (data.media_type === "VIDEO" ? null : data.media_url ?? null),
+    permalink: data.permalink ?? null,
+  };
+}
+
+export async function replyToFacebookComment(account: SocialAccount, commentId: string, text: string): Promise<SendResult> {
+  const data = await socialFetch<{ id?: string }>(account, `/${commentId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ message: text }),
+  });
+  return { id: data.id ?? null };
+}
+
+export async function fetchFacebookPost(account: SocialAccount, postId: string): Promise<MediaInfo> {
+  const data = await socialFetch<{
+    message?: string;
+    full_picture?: string;
+    permalink_url?: string;
+    reactions?: { summary?: { total_count?: number } };
+    comments?: { summary?: { total_count?: number } };
+  }>(
+    account,
+    `/${postId}?fields=message,full_picture,permalink_url,reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)`
+  );
+  return {
+    mediaId: postId,
+    caption: data.message ?? "",
+    likes: data.reactions?.summary?.total_count ?? 0,
+    comments: data.comments?.summary?.total_count ?? 0,
+    thumbnailUrl: data.full_picture ?? null,
+    permalink: data.permalink_url ?? null,
+  };
+}
+
+// Threads publica en dos pasos: se crea el contenedor de la respuesta y se publica.
+export async function replyOnThreads(account: SocialAccount, replyToId: string, text: string): Promise<SendResult> {
+  const form = { "Content-Type": "application/x-www-form-urlencoded" };
+  const container = await socialFetch<{ id?: string }>(account, `/${account.accountId}/threads`, {
+    method: "POST",
+    headers: form,
+    body: new URLSearchParams({ media_type: "TEXT", text, reply_to_id: replyToId }).toString(),
+  });
+  if (!container.id) throw new MetaConfigError("Threads no devolvió el contenedor de la respuesta.");
+  const published = await socialFetch<{ id?: string }>(account, `/${account.accountId}/threads_publish`, {
+    method: "POST",
+    headers: form,
+    body: new URLSearchParams({ creation_id: container.id }).toString(),
+  });
+  return { id: published.id ?? null };
+}
+
+export async function fetchThreadsPost(account: SocialAccount, postId: string): Promise<MediaInfo> {
+  const data = await socialFetch<{
+    text?: string;
+    permalink?: string;
+    media_type?: string;
+    media_url?: string;
+    thumbnail_url?: string;
+  }>(account, `/${postId}?fields=text,permalink,media_type,media_url,thumbnail_url`);
+  return {
+    mediaId: postId,
+    caption: data.text ?? "",
+    // La API de Threads no devuelve likes/respuestas sin permisos de métricas.
+    likes: 0,
+    comments: 0,
+    thumbnailUrl: data.thumbnail_url ?? (data.media_type === "IMAGE" ? data.media_url ?? null : null),
     permalink: data.permalink ?? null,
   };
 }

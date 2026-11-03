@@ -2,6 +2,7 @@
 // (mysql-store.ts); los tests usan una en memoria con la misma interfaz para no
 // tocar la base compartida de la VPS.
 
+import type { AttributeValues } from "../crm/attributes";
 import type { ChannelId } from "../crm/channels";
 import type {
   ConversationStatus,
@@ -45,6 +46,8 @@ export interface ConversationPatch {
   botActive?: boolean;
   assigneeId?: number | null;
   tags?: string[];
+  // Reemplaza todos los valores (la acción ya los mezcló con los anteriores).
+  attributes?: AttributeValues;
   note?: string;
 }
 
@@ -53,6 +56,9 @@ export type ActivityAuthor = "customer" | "bot" | "agent";
 // Datos extra al crear/actualizar una conversación de Instagram o Messenger.
 export interface ConversationIdentity {
   channel?: ChannelId;
+  // Cuenta dueña. En MySQL se deduce del número / página conectada; si no viene,
+  // queda en la cuenta por defecto (la primera de web_clients).
+  accountId?: number;
   handle?: string | null;
   post?: InboxPost | null;
 }
@@ -64,17 +70,18 @@ export interface StatusError {
 
 export interface InboxStore {
   // Crea la conversación si no existe y devuelve su id. Actualiza nombre/handle/post si vienen.
-  // accountId = phone_number_id / page_id / ig_user_id; contactId = wa_id / PSID / IGSID.
+  // businessId = phone_number_id / page_id / ig_user_id; contactId = wa_id / PSID / IGSID.
   upsertConversation(
-    accountId: string,
+    businessId: string,
     contactId: string,
     contactName: string | null,
     identity?: ConversationIdentity
   ): Promise<number>;
   getConversation(id: number): Promise<InboxConversation | null>;
   // Busca sin crear (para eventos como "leído" que no deben abrir conversaciones nuevas).
-  findConversationId(channel: ChannelId, accountId: string, contactId: string): Promise<number | null>;
-  listConversations(limit: number): Promise<InboxConversation[]>;
+  findConversationId(channel: ChannelId, businessId: string, contactId: string): Promise<number | null>;
+  // Conversaciones de una cuenta, las más recientes primero.
+  listConversations(accountId: number, limit: number): Promise<InboxConversation[]>;
   // Actualiza preview/hora/autor del último mensaje; si es entrante, también
   // last_inbound_at y no leídos, y reabre la conversación si estaba resuelta.
   recordActivity(
@@ -83,6 +90,10 @@ export interface InboxStore {
   ): Promise<void>;
   markConversationRead(id: number): Promise<void>;
   updateConversation(id: number, patch: ConversationPatch): Promise<void>;
+  // Al renombrar o borrar una etiqueta / un atributo en Configuración.
+  renameTag(accountId: number, from: string, to: string): Promise<void>;
+  removeTag(accountId: number, name: string): Promise<void>;
+  removeAttribute(accountId: number, key: string): Promise<void>;
 
   // Devuelve el id insertado, o null si el wamid ya existía (idempotencia del webhook).
   insertMessage(message: NewMessage): Promise<number | null>;

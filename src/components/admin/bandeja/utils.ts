@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CHANNELS } from "@/lib/crm/channels";
+import { commentContextLabel } from "@/lib/crm/channels";
 import type {
   InboxConversation,
   InboxMessage,
@@ -52,7 +52,7 @@ export function firstName(c: Pick<InboxConversation, "contactName">) {
 }
 
 export function channelSubtitle(c: InboxConversation) {
-  const channelName = c.channel === "igc" ? "Comentario en Instagram" : CHANNELS[c.channel].name;
+  const channelName = commentContextLabel(c.channel);
   const handle = contactHandle(c);
   return handle && handle !== displayName(c) ? `${handle} · ${channelName}` : channelName;
 }

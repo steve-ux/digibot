@@ -4,19 +4,21 @@
 // flujo de Meta). Mientras tanto, para probar, sirven las variables:
 //   META_PAGE_ID, META_PAGE_ACCESS_TOKEN, META_PAGE_NAME          -> Messenger
 //   META_IG_ACCOUNT_ID, META_IG_USERNAME (+ META_PAGE_*)          -> Instagram
-// Instagram usa el token de la página de Facebook vinculada.
+//   THREADS_USER_ID, THREADS_ACCESS_TOKEN, THREADS_USERNAME        -> Threads
+// Instagram usa el token de la página de Facebook vinculada; Threads tiene el suyo.
 
 import type { RowDataPacket } from "mysql2";
 import { decryptSecret } from "../crypto";
 import { getPool, isDbConfigured } from "../db";
 
-export type SocialChannel = "ig" | "fb";
+export type SocialChannel = "ig" | "fb" | "th";
 
 export interface SocialAccount {
   channel: SocialChannel;
   // entry.id de los webhooks: page_id (fb) o ig_user_id (ig)
   accountId: string;
-  pageId: string;
+  // Página de Facebook (Messenger e Instagram envían con ella). Threads no tiene.
+  pageId: string | null;
   displayName: string | null;
   accessToken: string | null;
   apiVersion: string;
@@ -26,7 +28,7 @@ export interface SocialAccount {
 interface AccountRow extends RowDataPacket {
   channel: SocialChannel;
   account_id: string;
-  page_id: string;
+  page_id: string | null;
   display_name: string | null;
   access_token_enc: string | null;
 }
@@ -34,7 +36,8 @@ interface AccountRow extends RowDataPacket {
 const TTL_MS = 60_000;
 let cache: { at: number; promise: Promise<SocialAccount[]> } | null = null;
 
-const apiVersion = () => process.env.META_GRAPH_API_VERSION || "v23.0";
+const apiVersion = (channel: SocialChannel = "fb") =>
+  channel === "th" ? process.env.THREADS_API_VERSION || "v1.0" : process.env.META_GRAPH_API_VERSION || "v23.0";
 
 function envAccounts(): SocialAccount[] {
   const pageId = process.env.META_PAGE_ID;
@@ -64,6 +67,19 @@ function envAccounts(): SocialAccount[] {
       source: "env",
     });
   }
+  const threadsId = process.env.THREADS_USER_ID;
+  if (threadsId) {
+    const username = process.env.THREADS_USERNAME;
+    accounts.push({
+      channel: "th",
+      accountId: threadsId,
+      pageId: null,
+      displayName: username ? `@${username.replace(/^@/, "")}` : null,
+      accessToken: process.env.THREADS_ACCESS_TOKEN || null,
+      apiVersion: apiVersion("th"),
+      source: "env",
+    });
+  }
   return accounts;
 }
 
@@ -81,7 +97,7 @@ async function loadAccounts(): Promise<SocialAccount[]> {
         pageId: row.page_id,
         displayName: row.display_name,
         accessToken: row.access_token_enc ? decryptSecret(row.access_token_enc) : null,
-        apiVersion: apiVersion(),
+        apiVersion: apiVersion(row.channel),
         source: "db",
       });
     }

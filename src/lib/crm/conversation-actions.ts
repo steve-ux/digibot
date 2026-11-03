@@ -3,7 +3,13 @@
 
 import type { ConversationPatch, InboxStore } from "../wa-inbox/store";
 import type { InboxConversation, InboxMessage } from "../wa-inbox/types";
-import type { CrmUser } from "./session";
+import { coerceAttributeValue, type AttributeValues, type CustomAttribute } from "./attributes";
+
+// Quién hace la acción (alcanza con id y nombre).
+export interface Actor {
+  id: number;
+  name: string;
+}
 
 export type ConversationAction =
   | { action: "resolve" }
@@ -12,7 +18,19 @@ export type ConversationAction =
   | { action: "release" }
   | { action: "assign"; assigneeId: number | null }
   | { action: "tags"; tags: string[] }
+  // Valores de atributos propios: { dni: "30111222", obra_social: null } (null borra)
+  | { action: "attributes"; values: Record<string, unknown> }
   | { action: "note"; note: string };
+
+// Lo que la acción necesita saber de la cuenta.
+export interface ActionContext {
+  // Personas a las que se puede asignar
+  team: Actor[];
+  // Nombres de las etiquetas de la cuenta (si no se pasan, no se valida contra la lista)
+  labels?: string[];
+  // Atributos definidos en la cuenta
+  attributes?: CustomAttribute[];
+}
 
 // Avisos del sistema que quedan en el historial del chat. El texto se guarda en
 // tercera persona; la UI lo reescribe en segunda ("Tomaste…") si lo hizo quien mira.
@@ -56,6 +74,11 @@ export function parseConversationAction(body: unknown): ConversationAction | nul
       if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string")) return null;
       return { action: "tags", tags: tags as string[] };
     }
+    case "attributes": {
+      const values = data.values;
+      if (!values || typeof values !== "object" || Array.isArray(values)) return null;
+      return { action: "attributes", values: values as Record<string, unknown> };
+    }
     case "note":
       return typeof data.note === "string" ? { action: "note", note: data.note } : null;
     default:
@@ -63,7 +86,20 @@ export function parseConversationAction(body: unknown): ConversationAction | nul
   }
 }
 
-async function addSystemMessage(store: InboxStore, conversationId: number, event: SystemEvent, actor: CrmUser) {
+function mergeAttributes(current: AttributeValues, values: Record<string, unknown>, defs: CustomAttribute[]) {
+  const next: AttributeValues = { ...current };
+  for (const [key, raw] of Object.entries(values)) {
+    const def = defs.find((d) => d.key === key);
+    if (!def) throw new ConversationActionError(`El atributo "${key}" no existe en esta cuenta.`, 400);
+    const result = coerceAttributeValue(def, raw);
+    if (!result.ok) throw new ConversationActionError(result.message, 400);
+    if (result.value === null) delete next[key];
+    else next[key] = result.value;
+  }
+  return next;
+}
+
+async function addSystemMessage(store: InboxStore, conversationId: number, event: SystemEvent, actor: Actor) {
   const id = await store.insertMessage({
     conversationId,
     wamid: null,
@@ -82,9 +118,10 @@ export async function applyConversationAction(
   store: InboxStore,
   conversationId: number,
   input: ConversationAction,
-  actor: CrmUser,
-  team: CrmUser[]
+  actor: Actor,
+  context: ActionContext
 ): Promise<{ conversation: InboxConversation; message: InboxMessage | null }> {
+  const { team } = context;
   const current = await store.getConversation(conversationId);
   if (!current) throw new ConversationActionError("La conversación no existe.", 404);
 
@@ -126,9 +163,18 @@ export async function applyConversationAction(
           400
         );
       }
+      // Solo etiquetas de la cuenta (se respetan las que ya tenía, aunque se hayan borrado de la lista).
+      if (context.labels) {
+        const allowed = new Set([...context.labels, ...current.tags]);
+        const unknown = tags.find((t) => !allowed.has(t));
+        if (unknown) throw new ConversationActionError(`La etiqueta "${unknown}" no existe en esta cuenta.`, 400);
+      }
       patch = { tags };
       break;
     }
+    case "attributes":
+      patch = { attributes: mergeAttributes(current.attributes, input.values, context.attributes ?? []) };
+      break;
     case "note":
       if (input.note.length > MAX_NOTE_LENGTH) {
         throw new ConversationActionError(`La nota no puede superar los ${MAX_NOTE_LENGTH} caracteres.`, 400);
@@ -145,7 +191,7 @@ export async function applyConversationAction(
 }
 
 // Nota interna en el chat: la ve solo el equipo, nunca se envía al cliente.
-export async function addInternalNote(store: InboxStore, conversationId: number, text: string, actor: CrmUser) {
+export async function addInternalNote(store: InboxStore, conversationId: number, text: string, actor: Actor) {
   const body = text.trim();
   if (!body) throw new ConversationActionError("La nota está vacía.", 400);
   if (body.length > MAX_NOTE_LENGTH) {

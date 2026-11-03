@@ -1,9 +1,11 @@
 // Canales del CRM: un solo lugar para nombre, ícono y color. Sin imports de
 // servidor: lo usan tanto las APIs como los componentes cliente.
 
-export type ChannelId = "wa" | "ig" | "igc" | "fb";
+// wa = WhatsApp · ig = DMs de Instagram · igc = comentarios de Instagram
+// fb = Messenger · fbc = comentarios de Facebook · th = respuestas en Threads
+export type ChannelId = "wa" | "ig" | "igc" | "fb" | "fbc" | "th";
 
-export const CHANNEL_IDS: ChannelId[] = ["wa", "ig", "igc", "fb"];
+export const CHANNEL_IDS: ChannelId[] = ["wa", "ig", "igc", "fb", "fbc", "th"];
 
 export interface ChannelInfo {
   id: ChannelId;
@@ -21,13 +23,39 @@ export const CHANNELS: Record<ChannelId, ChannelInfo> = {
   ig: { id: "ig", name: "Instagram", longName: "Instagram", icon: "/crm/channels/ig.svg", color: "var(--crm-ch-ig)" },
   igc: {
     id: "igc",
-    name: "Comentarios",
+    name: "Comentarios IG",
     longName: "Comentarios de Instagram",
     icon: "/crm/channels/igc.svg",
     color: "var(--crm-ch-igc)",
   },
   fb: { id: "fb", name: "Messenger", longName: "Messenger", icon: "/crm/channels/fb.svg", color: "var(--crm-ch-fb)" },
+  fbc: {
+    id: "fbc",
+    name: "Comentarios FB",
+    longName: "Comentarios de Facebook",
+    icon: "/crm/channels/fbc.svg",
+    color: "var(--crm-ch-fbc)",
+  },
+  th: { id: "th", name: "Threads", longName: "Threads", icon: "/crm/channels/th.svg", color: "var(--crm-ch-th)" },
 };
+
+// Canales donde se responde a una publicación (no son chats privados).
+export function isCommentChannel(channel: ChannelId) {
+  return channel === "igc" || channel === "fbc" || channel === "th";
+}
+
+// Donde Meta permite "responder por privado" un comentario (llega como DM).
+export function supportsPrivateReply(channel: ChannelId) {
+  return channel === "igc" || channel === "fbc";
+}
+
+// "Comentario en Instagram", "Respuesta en Threads"…
+export function commentContextLabel(channel: ChannelId) {
+  if (channel === "igc") return "Comentario en Instagram";
+  if (channel === "fbc") return "Comentario en Facebook";
+  if (channel === "th") return "Respuesta en Threads";
+  return CHANNELS[channel].name;
+}
 
 // Paleta de avatares (iniciales). Se elige por id para que sea estable.
 export const AVATAR_COLORS = [

@@ -1,21 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import Logo from "@/components/Logo";
 import { avatarColor, initialsOf } from "@/lib/crm/channels";
 import Icon, { type IconName } from "./Icon";
 import { ToastProvider } from "./Toast";
+import { accountApi, accountPath, canAccess, type CrmRole, type Section } from "@/lib/crm/permissions";
 import { DEMO_COOKIE } from "@/lib/crm/demo-cookie";
 
 export interface CrmUser {
+  id: number;
   name: string;
+  role: CrmRole;
   roleLabel: string;
+  // Cuenta de la persona (null = superadmin)
+  accountId: number | null;
+  // Acceso inicial con la contraseña compartida
+  bootstrap: boolean;
+}
+
+export interface ShellAccount {
+  id: number;
+  name: string;
 }
 
 interface ShellContextValue {
   user: CrmUser;
+  // Cuenta que se está mirando (de la URL). null en el listado de cuentas.
+  account: ShellAccount | null;
   // Modo demo: datos de ejemplo en todas las pantallas hasta tener datos reales.
   demo: boolean;
   setDemo: (on: boolean) => void;
@@ -33,24 +47,43 @@ export function useCrmShell() {
   return ctx;
 }
 
+// Id de la cuenta de la URL actual (para los componentes que arman links y llamadas).
+export function useAccountId() {
+  const { account } = useCrmShell();
+  if (!account) throw new Error("useAccountId fuera de una cuenta");
+  return account.id;
+}
 
 interface NavItem {
+  key: string;
   href: string;
   label: string;
   icon: IconName;
   mobile: boolean;
+  section: Section;
 }
 
-const NAV_MAIN: NavItem[] = [
-  { href: "/admin/bandeja", label: "Bandeja", icon: "inbox", mobile: true },
-  { href: "/admin/metricas", label: "Métricas", icon: "chart", mobile: true },
-];
+function accountNav(accountId: number) {
+  const main: NavItem[] = [
+    { key: "inbox", href: accountPath(accountId, "conversaciones"), label: "Bandeja", icon: "inbox", mobile: true, section: "inbox" },
+    { key: "metrics", href: accountPath(accountId, "metricas"), label: "Métricas", icon: "chart", mobile: true, section: "metrics" },
+  ];
+  const admin: NavItem[] = [
+    { key: "team", href: accountPath(accountId, "equipo"), label: "Equipo", icon: "users", mobile: true, section: "team" },
+    { key: "channels", href: accountPath(accountId, "canales"), label: "Canales", icon: "plug", mobile: true, section: "channels" },
+    { key: "templates", href: accountPath(accountId, "plantillas"), label: "Plantillas", icon: "template", mobile: false, section: "templates" },
+  ];
+  return { main, admin };
+}
 
-const NAV_ADMIN: NavItem[] = [
-  { href: "/admin/equipo", label: "Equipo", icon: "users", mobile: true },
-  { href: "/admin/canales", label: "Canales", icon: "plug", mobile: true },
-  { href: "/admin/plantillas", label: "Plantillas", icon: "template", mobile: false },
-];
+const ACCOUNTS_ITEM: NavItem = {
+  key: "accounts",
+  href: "/admin/cuentas",
+  label: "Cuentas",
+  icon: "building",
+  mobile: true,
+  section: "accounts",
+};
 
 const SUMMARY_POLL_MS = 20000;
 
@@ -87,7 +120,7 @@ function Badge({ count, compact }: { count: number; compact?: boolean }) {
   );
 }
 
-function SideLink({ item, active, badge }: { item: NavItem; active: boolean; badge: number }) {
+function SideLink({ item, active, badge }: { item: Pick<NavItem, "href" | "label" | "icon">; active: boolean; badge: number }) {
   return (
     <Link
       href={item.href}
@@ -113,20 +146,31 @@ function SideLink({ item, active, badge }: { item: NavItem; active: boolean; bad
 
 export default function CrmShell({
   user,
+  accounts,
   initialDemo,
   children,
 }: {
   user: CrmUser;
+  // Cuentas que puede ver (superadmin: todas; el resto: la suya)
+  accounts: ShellAccount[];
   initialDemo: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const params = useParams<{ accountId?: string }>();
   const router = useRouter();
   const { dark, toggle } = useThemeToggle();
   const [demo, setDemoState] = useState(initialDemo);
   const [unread, setUnread] = useState(0);
   const [immersive, setImmersive] = useState(false);
-  const onInbox = pathname.startsWith("/admin/bandeja");
+
+  const accountId = Number(params?.accountId) || null;
+  const account = useMemo<ShellAccount | null>(
+    () => (accountId ? (accounts.find((a) => a.id === accountId) ?? { id: accountId, name: `Cuenta ${accountId}` }) : null),
+    [accountId, accounts]
+  );
+  const isSuperadmin = user.role === "superadmin";
+  const onInbox = accountId !== null && pathname.startsWith(accountPath(accountId, "conversaciones"));
 
   const setDemo = useCallback(
     (on: boolean) => {
@@ -153,12 +197,12 @@ export default function CrmShell({
 
   // Fuera de la bandeja, el badge se mantiene con un resumen liviano.
   useEffect(() => {
-    if (onInbox || demo) return;
+    if (onInbox || demo || accountId === null) return;
     let cancelled = false;
     const load = async () => {
       if (document.hidden) return;
       try {
-        const res = await fetch("/api/admin/bandeja/resumen", { cache: "no-store" });
+        const res = await fetch(accountApi(accountId, "resumen"), { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setUnread(Number(data.unread) || 0);
@@ -172,7 +216,7 @@ export default function CrmShell({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [onInbox, demo]);
+  }, [onInbox, demo, accountId]);
 
   useEffect(() => {
     if (!onInbox) setImmersive(false);
@@ -185,12 +229,20 @@ export default function CrmShell({
   };
 
   const ctx = useMemo<ShellContextValue>(
-    () => ({ user, demo, setDemo, reportInboxUnread: setUnread, setImmersive }),
-    [user, demo, setDemo]
+    () => ({ user, account, demo, setDemo, reportInboxUnread: setUnread, setImmersive }),
+    [user, account, demo, setDemo]
   );
 
-  const isActive = (href: string) => pathname.startsWith(href);
-  const badgeFor = (href: string) => (href === "/admin/bandeja" ? unread : 0);
+  // El menú muestra solo lo que el rol puede usar (el control real está en el middleware y las APIs).
+  const nav = accountId ? accountNav(accountId) : { main: [], admin: [] };
+  const navMain = nav.main.filter((item) => canAccess(user.role, item.section));
+  const navAdmin = nav.admin.filter((item) => canAccess(user.role, item.section));
+  const settingsHref = accountId && canAccess(user.role, "settings") ? accountPath(accountId, "configuracion") : null;
+  const templatesHref = navAdmin.find((i) => i.key === "templates")?.href ?? null;
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const badgeFor = (key: string) => (key === "inbox" ? unread : 0);
+  const homeHref = accountId ? accountPath(accountId) : "/admin/cuentas";
+  const mobileItems = [...(isSuperadmin ? [ACCOUNTS_ITEM] : []), ...navMain, ...navAdmin].filter((i) => i.mobile);
 
   return (
     <ShellContext.Provider value={ctx}>
@@ -206,11 +258,11 @@ export default function CrmShell({
           {/* Sidebar: 236px desde 1024, 76px (solo íconos) entre 768 y 1023, oculto en mobile */}
           <aside
             aria-label="Menú principal"
-            className="hidden w-[76px] shrink-0 flex-col gap-1 border-r border-crm-border bg-crm-side px-3.5 py-5 md:flex lg:w-[236px]"
+            className="crm-scroll hidden w-[76px] shrink-0 flex-col gap-1 overflow-y-auto border-r border-crm-border bg-crm-side px-3.5 py-5 md:flex lg:w-[236px]"
           >
             <Link
-              href="/admin/bandeja"
-              className="flex items-center justify-center gap-2.5 px-0 pb-[22px] pt-1 lg:justify-start lg:px-2.5"
+              href={homeHref}
+              className="flex items-center justify-center gap-2.5 px-0 pb-[18px] pt-1 lg:justify-start lg:px-2.5"
             >
               <Logo size={30} />
               <span className="hidden font-poppins text-xl font-extrabold tracking-[-.5px] text-crm-ink lg:inline">
@@ -218,16 +270,43 @@ export default function CrmShell({
               </span>
             </Link>
 
-            <nav className="flex flex-col gap-1">
-              {NAV_MAIN.map((item) => (
-                <SideLink key={item.href} item={item} active={isActive(item.href)} badge={badgeFor(item.href)} />
-              ))}
-              <div className="hidden px-3.5 pb-2 pt-[22px] text-[11px] font-bold tracking-[1.2px] text-crm-muted lg:block">
-                ADMINISTRACIÓN
+            {account && (
+              <div
+                className="mb-3 hidden items-center gap-2 rounded-field border border-crm-border bg-crm-surf px-3 py-2 lg:flex"
+                title={`Cuenta #${account.id}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-crm-ink">{account.name}</div>
+                  <div className="text-xs text-crm-muted">Cuenta #{account.id}</div>
+                </div>
+                {isSuperadmin && (
+                  <Link
+                    href="/admin/cuentas"
+                    className="flex min-h-[32px] items-center rounded-pill px-2 text-xs font-bold text-crm-primary hover:bg-crm-tint"
+                  >
+                    Cambiar
+                  </Link>
+                )}
               </div>
-              <div className="mx-auto my-3 h-px w-8 bg-crm-border lg:hidden" aria-hidden />
-              {NAV_ADMIN.map((item) => (
-                <SideLink key={item.href} item={item} active={isActive(item.href)} badge={0} />
+            )}
+
+            <nav className="flex flex-col gap-1">
+              {isSuperadmin && (
+                <SideLink item={ACCOUNTS_ITEM} active={pathname === "/admin/cuentas"} badge={0} />
+              )}
+              {navMain.map((item) => (
+                <SideLink key={item.key} item={item} active={isActive(item.href)} badge={badgeFor(item.key)} />
+              ))}
+              {navAdmin.length > 0 && (
+                <>
+                  <div className="hidden px-3.5 pb-2 pt-[22px] text-[11px] font-bold tracking-[1.2px] text-crm-muted lg:block">
+                    ADMINISTRACIÓN
+                  </div>
+                  <div className="mx-auto my-3 h-px w-8 bg-crm-border lg:hidden" aria-hidden />
+                </>
+              )}
+              {navAdmin.map((item) => (
+                <SideLink key={item.key} item={item} active={isActive(item.href)} badge={0} />
               ))}
             </nav>
 
@@ -243,6 +322,14 @@ export default function CrmShell({
                 <span className="hidden lg:inline">Modo demo · Salir</span>
                 <span className="lg:hidden">DEMO</span>
               </button>
+            )}
+
+            {settingsHref && (
+              <SideLink
+                item={{ href: settingsHref, label: "Configuración", icon: "settings" }}
+                active={isActive(settingsHref)}
+                badge={0}
+              />
             )}
 
             <button
@@ -282,9 +369,16 @@ export default function CrmShell({
             {/* Barra superior mobile */}
             {!immersive && (
               <header className="flex h-14 shrink-0 items-center gap-1 border-b border-crm-border bg-crm-side pl-4 pr-2 pt-[env(safe-area-inset-top)] md:hidden">
-                <Link href="/admin/bandeja" className="flex flex-1 items-center gap-2">
+                <Link href={homeHref} className="flex min-w-0 flex-1 items-center gap-2">
                   <Logo size={26} />
-                  <span className="font-poppins text-lg font-extrabold tracking-[-.5px]">DigiBot</span>
+                  <span className="min-w-0">
+                    <span className="block font-poppins text-lg font-extrabold leading-tight tracking-[-.5px]">DigiBot</span>
+                    {account && (
+                      <span className="block truncate text-[11px] font-semibold leading-tight text-crm-muted">
+                        {account.name} · #{account.id}
+                      </span>
+                    )}
+                  </span>
                 </Link>
                 {demo && (
                   <button
@@ -295,15 +389,28 @@ export default function CrmShell({
                     DEMO
                   </button>
                 )}
-                <Link
-                  href="/admin/plantillas"
-                  aria-label="Plantillas"
-                  className={`flex h-11 w-11 items-center justify-center rounded-full ${
-                    isActive("/admin/plantillas") ? "text-crm-primary" : "text-crm-nav"
-                  }`}
-                >
-                  <Icon name="template" />
-                </Link>
+                {templatesHref && (
+                  <Link
+                    href={templatesHref}
+                    aria-label="Plantillas"
+                    className={`flex h-11 w-11 items-center justify-center rounded-full ${
+                      isActive(templatesHref) ? "text-crm-primary" : "text-crm-nav"
+                    }`}
+                  >
+                    <Icon name="template" />
+                  </Link>
+                )}
+                {settingsHref && (
+                  <Link
+                    href={settingsHref}
+                    aria-label="Configuración"
+                    className={`flex h-11 w-11 items-center justify-center rounded-full ${
+                      isActive(settingsHref) ? "text-crm-primary" : "text-crm-nav"
+                    }`}
+                  >
+                    <Icon name="settings" />
+                  </Link>
+                )}
                 <button
                   onClick={toggle}
                   aria-label={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
@@ -326,32 +433,30 @@ export default function CrmShell({
             </main>
 
             {/* Navegación inferior mobile */}
-            {!immersive && (
+            {!immersive && mobileItems.length > 0 && (
               <nav
                 aria-label="Menú principal"
                 className="pb-safe flex shrink-0 border-t border-crm-border bg-crm-side md:hidden"
               >
-                {[...NAV_MAIN, ...NAV_ADMIN]
-                  .filter((item) => item.mobile)
-                  .map((item) => {
-                    const active = isActive(item.href);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        aria-current={active ? "page" : undefined}
-                        className={`flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${
-                          active ? "text-crm-primary" : "text-crm-muted"
-                        }`}
-                      >
-                        <span className="relative flex">
-                          <Icon name={item.icon} size={22} />
-                          <Badge count={badgeFor(item.href)} compact />
-                        </span>
-                        {item.label}
-                      </Link>
-                    );
-                  })}
+                {mobileItems.map((item) => {
+                  const active = item.key === "accounts" ? pathname === "/admin/cuentas" : isActive(item.href);
+                  return (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold ${
+                        active ? "text-crm-primary" : "text-crm-muted"
+                      }`}
+                    >
+                      <span className="relative flex">
+                        <Icon name={item.icon} size={22} />
+                        <Badge count={badgeFor(item.key)} compact />
+                      </span>
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </nav>
             )}
           </div>

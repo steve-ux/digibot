@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useAccountId } from "@/components/crm/CrmShell";
 import { Modal } from "@/components/crm/Modal";
+import { accountPath } from "@/lib/crm/permissions";
 import { renderTemplateText, type InboxTemplate } from "@/lib/wa-inbox/types";
 import type { InboxApi } from "./api";
 
@@ -50,6 +52,7 @@ export default function TemplateModal({
   contactFirstName: string;
   onSend: (selection: TemplateSelection) => void;
 }) {
+  const accountId = useAccountId();
   const [state, setState] = useState<
     { kind: "loading" } | { kind: "error"; message: string } | { kind: "ready"; templates: InboxTemplate[] }
   >({ kind: "loading" });
@@ -136,7 +139,7 @@ export default function TemplateModal({
       {state.kind === "ready" && templates.length === 0 && (
         <div className="rounded-2xl bg-crm-surf p-5 text-sm text-crm-muted">
           Todavía no tenés plantillas aprobadas.{" "}
-          <Link href="/admin/plantillas/nueva" className="font-semibold text-crm-primary">
+          <Link href={accountPath(accountId, "plantillas/nueva")} className="font-semibold text-crm-primary">
             Creá una desde Plantillas
           </Link>{" "}
           y esperá la aprobación de Meta.

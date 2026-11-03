@@ -4,9 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCrmShell } from "@/components/crm/CrmShell";
 import { Sheet } from "@/components/crm/Modal";
 import { useToast } from "@/components/crm/Toast";
+import { getDemoSettings } from "@/components/crm/demo-settings";
+import type { AttributeValues, CustomAttribute } from "@/lib/crm/attributes";
+import { CHANNEL_IDS, type ChannelId } from "@/lib/crm/channels";
 import type { ConversationAction } from "@/lib/crm/conversation-actions";
+import type { Label } from "@/lib/crm/labels";
+import { accountPath } from "@/lib/crm/permissions";
 import type { InboxConversation, InboxMessage } from "@/lib/wa-inbox/types";
-import { realApi, type InboxApi } from "./api";
+import { getRealApi, type InboxApi } from "./api";
 import ChatPanel from "./ChatPanel";
 import ContactPanel from "./ContactPanel";
 import ConversationList, {
@@ -30,10 +35,30 @@ export interface BandejaFilters {
 }
 
 interface Props {
+  accountId: number;
   initialState: BandejaLoadState;
   me: TeamMember;
   team: TeamMember[];
   initialFilters: BandejaFilters;
+  // Canales que puede ver esta persona (en demo, todos)
+  allowedChannels: ChannelId[];
+  // Etiquetas y atributos propios de la cuenta (Configuración)
+  labels: Label[];
+  attributes: CustomAttribute[];
+}
+
+// La URL de la conversación abierta: /admin/cuentas/7/conversaciones/12 (con los filtros como query).
+function chatUrl(accountId: number, conversationId: number | null) {
+  const url = new URL(window.location.href);
+  url.pathname = conversationId
+    ? accountPath(accountId, `conversaciones/${conversationId}`)
+    : accountPath(accountId, "conversaciones");
+  return url;
+}
+
+function chatIdFromPath(pathname: string) {
+  const match = /\/conversaciones\/(\d+)\/?$/.exec(pathname);
+  return match ? Number(match[1]) : null;
 }
 
 // Tras una acción local, el polling puede traer el estado viejo por unos segundos:
@@ -46,11 +71,35 @@ export default function BandejaView(props: Props) {
   return <Bandeja key={demo ? "demo" : "real"} {...props} demo={demo} />;
 }
 
-function Bandeja({ initialState, me, team: realTeam, initialFilters, demo }: Props & { demo: boolean }) {
+function Bandeja({
+  accountId,
+  initialState,
+  me,
+  team: realTeam,
+  initialFilters,
+  allowedChannels,
+  labels: realLabels,
+  attributes: realAttributes,
+  demo,
+}: Props & { demo: boolean }) {
   const { reportInboxUnread, setImmersive, setDemo } = useCrmShell();
   const toast = useToast();
-  const api: InboxApi = useMemo(() => (demo ? getDemoApi(me) : realApi), [demo, me]);
+  const api: InboxApi = useMemo(() => (demo ? getDemoApi(me, accountId) : getRealApi(accountId)), [demo, me, accountId]);
   const team = useMemo(() => (demo ? demoTeam(me) : realTeam), [demo, me, realTeam]);
+  const [settings, setSettings] = useState({ labels: realLabels, attributes: realAttributes });
+
+  // En demo, las etiquetas y atributos son los de Configuración (en memoria).
+  useEffect(() => {
+    if (!demo) return;
+    let cancelled = false;
+    getDemoSettings(accountId).then(async (repo) => {
+      const [labels, attributes] = await Promise.all([repo.listLabels(accountId), repo.listAttributes(accountId)]);
+      if (!cancelled) setSettings({ labels, attributes });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [demo, accountId]);
 
   const [state, setState] = useState<BandejaLoadState>(demo ? { kind: "loading" } : initialState);
   const [channel, setChannel] = useState<ChannelFilter>(initialFilters.channel);
@@ -126,8 +175,7 @@ function Bandeja({ initialState, me, team: realTeam, initialFilters, demo }: Pro
   // ---------- Selección + historial (el "atrás" del celular cierra el chat) ----------
 
   const open = (c: InboxConversation) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("c", String(c.id));
+    const url = chatUrl(accountId, c.id);
     if (selectedId === null) {
       window.history.pushState({ crmChat: c.id }, "", url);
       pushedHistory.current = true;
@@ -144,17 +192,14 @@ function Bandeja({ initialState, me, team: realTeam, initialFilters, demo }: Pro
       window.history.back();
       return;
     }
-    const url = new URL(window.location.href);
-    url.searchParams.delete("c");
-    window.history.replaceState(null, "", url);
+    window.history.replaceState(null, "", chatUrl(accountId, null));
     setSelectedId(null);
   };
 
   useEffect(() => {
     const onPop = () => {
-      const c = Number(new URL(window.location.href).searchParams.get("c"));
       pushedHistory.current = false;
-      setSelectedId(Number.isInteger(c) && c > 0 ? c : null);
+      setSelectedId(chatIdFromPath(window.location.pathname));
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -218,6 +263,20 @@ function Bandeja({ initialState, me, team: realTeam, initialFilters, demo }: Pro
   const setTags = (tags: string[]) => act({ action: "tags", tags }, (c) => ({ ...c, tags }), null, { busy: false });
 
   const saveNote = (note: string) => act({ action: "note", note }, (c) => ({ ...c, note }), null, { busy: false });
+
+  // Un atributo a la vez (se guarda al salir del campo o al elegir una opción).
+  const saveAttribute = (key: string, value: AttributeValues[string] | null) =>
+    act(
+      { action: "attributes", values: { [key]: value } },
+      (c) => {
+        const next = { ...c.attributes };
+        if (value === null || value === "") delete next[key];
+        else next[key] = value;
+        return { ...c, attributes: next };
+      },
+      null,
+      { busy: false }
+    );
 
   const onOutgoing = (preview: string) => {
     if (!selected) return;
@@ -298,9 +357,13 @@ function Bandeja({ initialState, me, team: realTeam, initialFilters, demo }: Pro
       conversation={selected}
       team={team}
       meId={me.id}
+      accountId={accountId}
+      labels={settings.labels}
+      attributes={settings.attributes}
       onAssign={assign}
       onTags={setTags}
       onNote={saveNote}
+      onAttribute={saveAttribute}
     />
   ) : null;
 
@@ -327,6 +390,7 @@ function Bandeja({ initialState, me, team: realTeam, initialFilters, demo }: Pro
           onOpen={open}
           banner={banner}
           empty={listEmpty}
+          channels={demo ? CHANNEL_IDS : allowedChannels}
         />
       </section>
 

@@ -7,7 +7,14 @@
 import { pickErrorCode } from "../crm/meta-errors";
 import { replyAvailability, type ReplyKind } from "../crm/reply-window";
 import { getSocialAccount, type SocialAccount, type SocialChannel } from "../meta-social/accounts";
-import { replyToComment, sendDirectMessage, sendPrivateReply } from "../meta-social/graph";
+import { isCommentChannel, type ChannelId } from "../crm/channels";
+import {
+  replyOnThreads,
+  replyToComment,
+  replyToFacebookComment,
+  sendDirectMessage,
+  sendPrivateReply,
+} from "../meta-social/graph";
 import { MetaApiError, MetaConfigError, sendWhatsAppMessage, type TemplateMessageInput } from "../meta-whatsapp";
 import { getInboxStore, type InboxStore } from "./store";
 import { listApprovedInboxTemplates } from "./templates";
@@ -56,9 +63,18 @@ interface SendDeps {
 
 // Tipo del mensaje saliente según canal y modo (lo usa la UI para la etiqueta).
 function outgoingType(channel: InboxConversation["channel"], replyMode?: ReplyMode) {
-  if (channel !== "igc") return "text";
+  if (!isCommentChannel(channel)) return "text";
   return replyMode === "private" ? "private_reply" : "comment_reply";
 }
+
+// Con qué cuenta se envía cada canal.
+function accountChannelOf(channel: ChannelId): SocialChannel {
+  if (channel === "fb" || channel === "fbc") return "fb";
+  if (channel === "th") return "th";
+  return "ig";
+}
+
+const ACCOUNT_NAMES: Record<SocialChannel, string> = { fb: "Facebook", ig: "Instagram", th: "Threads" };
 
 function replyKind(type: string): ReplyKind {
   if (type === "comment_reply") return "comment_public";
@@ -75,8 +91,9 @@ function assertCanReply(conversation: InboxConversation, type: string) {
 }
 
 const MAX_TEXT_LENGTH = 4096;
-// Messenger e Instagram aceptan hasta 2000 caracteres por mensaje.
+// Messenger e Instagram aceptan hasta 2000 caracteres por mensaje (Threads, 500).
 const MAX_SOCIAL_TEXT_LENGTH = 2000;
+const MAX_THREADS_TEXT_LENGTH = 500;
 
 // Los webhooks traen los celulares de Argentina como 549XXXXXXXXXX y los de México
 // como 521XXXXXXXXXX, pero la lista de destinatarios permitidos (números de prueba)
@@ -152,7 +169,12 @@ export async function sendFromInbox(
   if (input.type === "text") {
     body = input.body.trim();
     if (!body) throw new InboxSendError("invalid_body", "El mensaje está vacío.", 400);
-    const max = conversation.channel === "wa" ? MAX_TEXT_LENGTH : MAX_SOCIAL_TEXT_LENGTH;
+    const max =
+      conversation.channel === "wa"
+        ? MAX_TEXT_LENGTH
+        : conversation.channel === "th"
+          ? MAX_THREADS_TEXT_LENGTH
+          : MAX_SOCIAL_TEXT_LENGTH;
     if (body.length > max) {
       throw new InboxSendError("invalid_body", `El mensaje supera los ${max} caracteres.`, 400);
     }
@@ -224,22 +246,21 @@ async function sendSocial(
   type: string,
   deps: SendDeps
 ): Promise<{ id: string | null }> {
-  const channel: SocialChannel = conversation.channel === "fb" ? "fb" : "ig";
+  const channel = accountChannelOf(conversation.channel);
   const account = await (deps.getAccount ?? getSocialAccount)(channel, conversation.phoneNumberId);
   if (!account) {
-    throw new MetaConfigError(
-      `La cuenta de ${channel === "fb" ? "Messenger" : "Instagram"} no está conectada. Conectala desde Canales.`
-    );
+    throw new MetaConfigError(`La cuenta de ${ACCOUNT_NAMES[channel]} no está conectada. Conectala desde Canales.`);
   }
 
-  if (conversation.channel === "igc") {
+  if (isCommentChannel(conversation.channel)) {
     // Se responde al último comentario del cliente en ese hilo.
     const recent = await store.listMessages(conversation.id, 0, 200);
     const comment = [...recent].reverse().find((m) => m.direction === "in" && m.wamid);
     if (!comment?.wamid) throw new MetaConfigError("No se encontró el comentario para responder.");
-    return type === "private_reply"
-      ? sendPrivateReply(account, comment.wamid, text)
-      : replyToComment(account, comment.wamid, text);
+    if (type === "private_reply") return sendPrivateReply(account, comment.wamid, text);
+    if (conversation.channel === "fbc") return replyToFacebookComment(account, comment.wamid, text);
+    if (conversation.channel === "th") return replyOnThreads(account, comment.wamid, text);
+    return replyToComment(account, comment.wamid, text);
   }
 
   const { humanAgent } = replyAvailability(conversation, "message");

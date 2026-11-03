@@ -5,31 +5,44 @@
 import { addInternalNote, applyConversationAction } from "@/lib/crm/conversation-actions";
 import { buildDemoStore, DEMO_TEAMMATES, DEMO_TEMPLATES } from "@/lib/crm/demo-data";
 import { replyAvailability } from "@/lib/crm/reply-window";
-import type { CrmUser } from "@/lib/crm/session";
+import { isCommentChannel } from "@/lib/crm/channels";
+import type { Actor } from "@/lib/crm/conversation-actions";
 import type { MemoryInboxStore } from "@/lib/wa-inbox/memory-store";
 import { renderTemplateText } from "@/lib/wa-inbox/types";
 import { ApiError, type InboxApi, type SendResponse } from "./api";
 import type { TeamMember } from "./utils";
+import { getDemoSettings } from "@/components/crm/demo-settings";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const nowUnix = () => Math.floor(Date.now() / 1000);
 
-let instance: { key: string; api: InboxApi } | null = null;
+let instance: { key: string; api: InboxApi; store: MemoryInboxStore } | null = null;
 
 export function demoTeam(me: TeamMember): TeamMember[] {
   return [me, ...DEMO_TEAMMATES];
 }
 
-export function getDemoApi(me: TeamMember): InboxApi {
-  const key = `${me.id}:${me.name}`;
-  if (!instance || instance.key !== key) instance = { key, api: createDemoApi(me) };
-  return instance.api;
+function ensure(me: TeamMember, accountId: number) {
+  const key = `${me.id}:${me.name}:${accountId}`;
+  if (!instance || instance.key !== key) {
+    const store = buildDemoStore(me.name, accountId);
+    instance = { key, store, api: createDemoApi(me, accountId, store) };
+  }
+  return instance;
 }
 
-function createDemoApi(me: TeamMember): InboxApi {
-  const store: MemoryInboxStore = buildDemoStore(me.name);
-  const actor: CrmUser = { id: me.id, name: me.name, role: "admin" };
-  const team: CrmUser[] = demoTeam(me).map((m) => ({ ...m, role: "agent" }));
+export function getDemoApi(me: TeamMember, accountId: number): InboxApi {
+  return ensure(me, accountId).api;
+}
+
+// Configuración (en demo) renombra o borra etiquetas sobre las mismas conversaciones.
+export function getDemoInboxStore(me: TeamMember, accountId: number): MemoryInboxStore {
+  return ensure(me, accountId).store;
+}
+
+function createDemoApi(me: TeamMember, accountId: number, store: MemoryInboxStore): InboxApi {
+  const actor: Actor = { id: me.id, name: me.name };
+  const team: Actor[] = demoTeam(me);
 
   // Simula los webhooks de estado de Meta.
   const simulateDelivery = (messageId: number) => {
@@ -66,7 +79,7 @@ function createDemoApi(me: TeamMember): InboxApi {
     demo: true,
 
     async listConversations() {
-      return store.listConversations(500);
+      return store.listConversations(accountId, 500);
     },
 
     async loadMessages(conversationId, afterId) {
@@ -103,7 +116,7 @@ function createDemoApi(me: TeamMember): InboxApi {
         }
         case "text": {
           const type =
-            conversation.channel === "igc"
+            isCommentChannel(conversation.channel)
               ? payload.replyMode === "private"
                 ? "private_reply"
                 : "comment_reply"
@@ -120,7 +133,13 @@ function createDemoApi(me: TeamMember): InboxApi {
 
     async act(conversationId, action) {
       await wait(250);
-      return applyConversationAction(store, conversationId, action, actor, team);
+      const settings = await getDemoSettings(accountId);
+      const [labels, attributes] = await Promise.all([settings.listLabels(accountId), settings.listAttributes(accountId)]);
+      return applyConversationAction(store, conversationId, action, actor, {
+        team,
+        labels: labels.map((l) => l.name),
+        attributes,
+      });
     },
 
     async templates() {

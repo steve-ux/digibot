@@ -27,6 +27,8 @@ const nowUnix = () => Math.floor(Date.now() / 1000);
 export class MemoryInboxStore implements InboxStore {
   conversations: StoredConversation[] = [];
   messages: StoredMessage[] = [];
+  // Cuenta de las conversaciones que se crean sin indicar una (como la cuenta por defecto en MySQL).
+  defaultAccountId = 1;
 
   private toConversation(c: StoredConversation): InboxConversation {
     const windowSecondsLeft =
@@ -56,6 +58,7 @@ export class MemoryInboxStore implements InboxStore {
     }
     const conversation: StoredConversation = {
       id: this.conversations.length + 1,
+      accountId: identity.accountId ?? this.defaultAccountId,
       channel,
       phoneNumberId,
       waId,
@@ -71,6 +74,7 @@ export class MemoryInboxStore implements InboxStore {
       botActive: false,
       assigneeId: null,
       tags: [],
+      attributes: {},
       note: "",
       createdAt: nowUnix(),
       sessionCount: 1,
@@ -91,8 +95,9 @@ export class MemoryInboxStore implements InboxStore {
     );
   }
 
-  async listConversations(limit: number) {
-    return [...this.conversations]
+  async listConversations(accountId: number, limit: number) {
+    return this.conversations
+      .filter((c) => c.accountId === accountId)
       .sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
       .slice(0, limit)
       .map((c) => this.toConversation(c));
@@ -132,6 +137,27 @@ export class MemoryInboxStore implements InboxStore {
   async markConversationRead(id: number) {
     const c = this.conversations.find((x) => x.id === id);
     if (c) c.unreadCount = 0;
+  }
+
+  async renameTag(accountId: number, from: string, to: string) {
+    for (const c of this.conversations) {
+      if (c.accountId !== accountId || !c.tags.includes(from)) continue;
+      c.tags = Array.from(new Set(c.tags.map((t) => (t === from ? to : t))));
+    }
+  }
+
+  async removeTag(accountId: number, name: string) {
+    for (const c of this.conversations) {
+      if (c.accountId === accountId) c.tags = c.tags.filter((t) => t !== name);
+    }
+  }
+
+  async removeAttribute(accountId: number, key: string) {
+    for (const c of this.conversations) {
+      if (c.accountId !== accountId || !(key in c.attributes)) continue;
+      const { [key]: _removed, ...rest } = c.attributes;
+      c.attributes = rest;
+    }
   }
 
   async insertMessage(message: NewMessage) {

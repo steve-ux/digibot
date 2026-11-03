@@ -3,6 +3,7 @@
 
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { getPool } from "../db";
+import { parseAttributeValues } from "../crm/attributes";
 import type { ChannelId } from "../crm/channels";
 import type {
   ActivityAuthor,
@@ -25,8 +26,8 @@ import type {
 } from "./types";
 
 const CONVERSATION_COLUMNS = `
-  id, channel, phone_number_id, wa_id, contact_name, handle, post, last_message_preview, last_message_author,
-  unread_count, status, bot_active, assignee_id, tags, note, session_count,
+  id, client_id, channel, phone_number_id, wa_id, contact_name, handle, post, last_message_preview, last_message_author,
+  unread_count, status, bot_active, assignee_id, tags, attributes, note, session_count,
   UNIX_TIMESTAMP(created_at) AS created_ts,
   UNIX_TIMESTAMP(last_message_at) AS last_message_ts,
   UNIX_TIMESTAMP(last_inbound_at) AS last_inbound_ts,
@@ -38,6 +39,7 @@ const MESSAGE_COLUMNS = `
 
 interface ConversationRow extends RowDataPacket {
   id: number;
+  client_id: number | null;
   channel: ChannelId;
   phone_number_id: string;
   wa_id: string;
@@ -51,6 +53,7 @@ interface ConversationRow extends RowDataPacket {
   bot_active: number;
   assignee_id: number | null;
   tags: unknown;
+  attributes: unknown;
   note: string | null;
   session_count: number;
   created_ts: number | string;
@@ -122,6 +125,7 @@ function defaultAuthor(direction: MessageDirection): MessageAuthor {
 function mapConversation(row: ConversationRow): InboxConversation {
   return {
     id: row.id,
+    accountId: Number(row.client_id ?? 0),
     channel: row.channel ?? "wa",
     phoneNumberId: row.phone_number_id,
     waId: row.wa_id,
@@ -138,6 +142,7 @@ function mapConversation(row: ConversationRow): InboxConversation {
     botActive: Boolean(row.bot_active),
     assigneeId: row.assignee_id ?? null,
     tags: parseTags(row.tags),
+    attributes: parseAttributeValues(row.attributes),
     note: row.note ?? "",
     createdAt: Number(row.created_ts),
     sessionCount: Number(row.session_count) || 1,
@@ -162,6 +167,13 @@ function mapMessage(row: MessageRow): InboxMessage {
   };
 }
 
+// Canal de web_channel_accounts que corresponde a cada canal de la bandeja.
+function businessAccountChannel(channel: ChannelId) {
+  if (channel === "fb" || channel === "fbc") return "fb";
+  if (channel === "th") return "th";
+  return "ig";
+}
+
 function truncate(value: string | null | undefined, max: number) {
   if (value == null) return null;
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
@@ -169,23 +181,39 @@ function truncate(value: string | null | undefined, max: number) {
 
 export class MySqlInboxStore implements InboxStore {
   async upsertConversation(
-    accountId: string,
+    businessId: string,
     contactId: string,
     contactName: string | null,
     identity: ConversationIdentity = {}
   ) {
+    const channel = identity.channel ?? "wa";
+    // La cuenta dueña: la que conectó ese número / página / perfil; si no hay
+    // ninguna registrada todavía, la cuenta por defecto (la primera).
     // LAST_INSERT_ID(id) hace que insertId devuelva el id también cuando la fila ya existía.
     const [result] = await getPool().query<ResultSetHeader>(
-      `INSERT INTO web_wa_conversations (channel, phone_number_id, wa_id, contact_name, handle, post)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO web_wa_conversations (client_id, channel, phone_number_id, wa_id, contact_name, handle, post)
+       VALUES (
+         COALESCE(
+           ?,
+           (SELECT client_id FROM web_whatsapp_connections WHERE ? = 'wa' AND phone_number_id = ? ORDER BY id LIMIT 1),
+           (SELECT client_id FROM web_channel_accounts WHERE channel = ? AND account_id = ? AND client_id IS NOT NULL LIMIT 1),
+           (SELECT MIN(id) FROM web_clients)
+         ),
+         ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
+         client_id = COALESCE(client_id, VALUES(client_id)),
          contact_name = COALESCE(VALUES(contact_name), contact_name),
          handle = COALESCE(VALUES(handle), handle),
          post = COALESCE(VALUES(post), post),
          id = LAST_INSERT_ID(id)`,
       [
-        identity.channel ?? "wa",
-        accountId,
+        identity.accountId ?? null,
+        channel,
+        businessId,
+        businessAccountChannel(channel),
+        businessId,
+        channel,
+        businessId,
         contactId,
         truncate(contactName, 191),
         truncate(identity.handle ?? null, 191),
@@ -203,21 +231,22 @@ export class MySqlInboxStore implements InboxStore {
     return rows[0] ? mapConversation(rows[0]) : null;
   }
 
-  async findConversationId(channel: ChannelId, accountId: string, contactId: string) {
+  async findConversationId(channel: ChannelId, businessId: string, contactId: string) {
     const [rows] = await getPool().query<RowDataPacket[]>(
       `SELECT id FROM web_wa_conversations WHERE channel = ? AND phone_number_id = ? AND wa_id = ? LIMIT 1`,
-      [channel, accountId, contactId]
+      [channel, businessId, contactId]
     );
     return rows[0] ? Number(rows[0].id) : null;
   }
 
-  async listConversations(limit: number) {
+  async listConversations(accountId: number, limit: number) {
     const [rows] = await getPool().query<ConversationRow[]>(
       `SELECT ${CONVERSATION_COLUMNS}
        FROM web_wa_conversations
+       WHERE client_id = ?
        ORDER BY last_message_at IS NULL, last_message_at DESC, id DESC
        LIMIT ?`,
-      [limit]
+      [accountId, limit]
     );
     return rows.map(mapConversation);
   }
@@ -289,6 +318,10 @@ export class MySqlInboxStore implements InboxStore {
       sets.push("tags = ?");
       params.push(JSON.stringify(patch.tags));
     }
+    if (patch.attributes !== undefined) {
+      sets.push("attributes = ?");
+      params.push(JSON.stringify(patch.attributes));
+    }
     if (patch.note !== undefined) {
       sets.push("note = ?");
       params.push(patch.note);
@@ -296,6 +329,38 @@ export class MySqlInboxStore implements InboxStore {
     if (sets.length === 0) return;
     params.push(id);
     await getPool().query(`UPDATE web_wa_conversations SET ${sets.join(", ")} WHERE id = ?`, params);
+  }
+
+  // Las etiquetas se guardan por nombre: renombrar o borrar una actualiza las conversaciones.
+  private async rewriteTags(accountId: number, name: string, fn: (tags: string[]) => string[]) {
+    const [rows] = await getPool().query<RowDataPacket[]>(
+      `SELECT id, tags FROM web_wa_conversations WHERE client_id = ? AND JSON_CONTAINS(tags, ?)`,
+      [accountId, JSON.stringify(name)]
+    );
+    for (const row of rows) {
+      await getPool().query(`UPDATE web_wa_conversations SET tags = ? WHERE id = ?`, [
+        JSON.stringify(fn(parseTags(row.tags))),
+        row.id,
+      ]);
+    }
+  }
+
+  renameTag(accountId: number, from: string, to: string) {
+    return this.rewriteTags(accountId, from, (tags) => Array.from(new Set(tags.map((t) => (t === from ? to : t)))));
+  }
+
+  removeTag(accountId: number, name: string) {
+    return this.rewriteTags(accountId, name, (tags) => tags.filter((t) => t !== name));
+  }
+
+  async removeAttribute(accountId: number, key: string) {
+    // La clave ya viene validada (snake_case), igual va como parámetro.
+    const path = `$."${key}"`;
+    await getPool().query(
+      `UPDATE web_wa_conversations SET attributes = JSON_REMOVE(attributes, ?)
+       WHERE client_id = ? AND attributes IS NOT NULL AND JSON_CONTAINS_PATH(attributes, 'one', ?)`,
+      [path, accountId, path]
+    );
   }
 
   async insertMessage(message: NewMessage) {

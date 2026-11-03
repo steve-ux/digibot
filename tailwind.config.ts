@@ -93,6 +93,8 @@ export default {
           ig: 'var(--crm-ch-ig)',
           igc: 'var(--crm-ch-igc)',
           fb: 'var(--crm-ch-fb)',
+          fbc: 'var(--crm-ch-fbc)',
+          th: 'var(--crm-ch-th)',
         },
         chart: {
           '1': 'hsl(var(--chart-1))',

@@ -1,8 +1,9 @@
 // Fuente de datos de la bandeja. La UI habla siempre con InboxApi: en modo real
-// va contra /api/admin/bandeja, en modo demo contra un store en memoria
+// va contra /api/admin/cuentas/:cuenta/..., en modo demo contra un store en memoria
 // (demo-api.ts) con los datos de ejemplo. Así la interfaz es una sola.
 
 import type { ConversationAction } from "@/lib/crm/conversation-actions";
+import { accountApi } from "@/lib/crm/permissions";
 import type {
   InboxConversation,
   InboxMessage,
@@ -64,25 +65,37 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-const BASE = "/api/admin/bandeja";
-let templatesCache: InboxTemplate[] | null = null;
+const templatesCache = new Map<number, InboxTemplate[]>();
+const apis = new Map<number, InboxApi>();
 
-export const realApi: InboxApi = {
+// Una instancia por cuenta (así useMemo no la recrea en cada render).
+export function getRealApi(accountId: number): InboxApi {
+  let api = apis.get(accountId);
+  if (!api) {
+    api = createRealApi(accountId);
+    apis.set(accountId, api);
+  }
+  return api;
+}
+
+function createRealApi(accountId: number): InboxApi {
+  const BASE = accountApi(accountId, "");
+  return {
   demo: false,
 
   async listConversations() {
-    const data = await request<{ conversations: InboxConversation[] }>(`${BASE}/conversaciones`);
+    const data = await request<{ conversations: InboxConversation[] }>(`${BASE}conversaciones`);
     return data.conversations;
   },
 
   loadMessages(conversationId, afterId) {
-    return request<MessagesResponse>(`${BASE}/conversaciones/${conversationId}/mensajes?after=${afterId}`);
+    return request<MessagesResponse>(`${BASE}conversaciones/${conversationId}/mensajes?after=${afterId}`);
   },
 
   async send(conversationId, payload) {
     let res: Response;
     try {
-      res = await fetch(`${BASE}/conversaciones/${conversationId}/mensajes`, {
+      res = await fetch(`${BASE}conversaciones/${conversationId}/mensajes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -99,7 +112,7 @@ export const realApi: InboxApi = {
   },
 
   act(conversationId, action) {
-    return request(`${BASE}/conversaciones/${conversationId}`, {
+    return request(`${BASE}conversaciones/${conversationId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(action),
@@ -107,9 +120,11 @@ export const realApi: InboxApi = {
   },
 
   async templates() {
-    if (templatesCache) return templatesCache;
-    const data = await request<{ templates: InboxTemplate[] }>(`${BASE}/plantillas`);
-    templatesCache = data.templates;
+    const cached = templatesCache.get(accountId);
+    if (cached) return cached;
+    const data = await request<{ templates: InboxTemplate[] }>(`${BASE}plantillas-aprobadas`);
+    templatesCache.set(accountId, data.templates);
     return data.templates;
   },
-};
+  };
+}

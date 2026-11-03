@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/crm/Icon";
 import { useToast } from "@/components/crm/Toast";
+import { isCommentChannel, supportsPrivateReply } from "@/lib/crm/channels";
 import { replyAvailability } from "@/lib/crm/reply-window";
 import type { InboxConversation } from "@/lib/wa-inbox/types";
 import type { ReplyMode } from "./api";
@@ -59,7 +60,7 @@ export default function Composer({
 }) {
   const toast = useToast();
   const state = composerState(conversation);
-  const isComment = conversation.channel === "igc";
+  const isComment = isCommentChannel(conversation.channel);
   const [target, setTarget] = useState<ComposeTarget>(isComment ? "public" : "reply");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // En pantallas táctiles Enter hace salto de línea (como WhatsApp); se envía con el botón.
@@ -166,7 +167,8 @@ export default function Composer({
     );
   }
 
-  const privateAllowed = isComment && replyAvailability(conversation, "comment_private").allowed;
+  const privateAllowed =
+    isComment && supportsPrivateReply(conversation.channel) && replyAvailability(conversation, "comment_private").allowed;
   const humanAgent = !isComment && conversation.channel !== "wa" && replyAvailability(conversation, "message").humanAgent;
   const targets: { id: ComposeTarget; label: string }[] = isComment
     ? [

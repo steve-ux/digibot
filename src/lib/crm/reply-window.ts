@@ -4,10 +4,11 @@
 //   WhatsApp ............ 24 h desde el último mensaje del cliente; después, solo plantillas.
 //   Instagram/Messenger . 24 h libres; de 24 h a 7 días solo con la etiqueta HUMAN_AGENT
 //                         (responde una persona); después de 7 días, nada.
-//   Comentarios IG ...... respuesta pública siempre; respuesta privada hasta 7 días
+//   Comentarios IG / FB . respuesta pública siempre; respuesta privada hasta 7 días
 //                         después del comentario (y una sola por comentario).
+//   Threads ............. solo respuesta pública (la API no tiene mensajes privados).
 
-import type { ChannelId } from "./channels";
+import { isCommentChannel, supportsPrivateReply, type ChannelId } from "./channels";
 
 const HOUR = 3600;
 export const STANDARD_WINDOW_SECONDS = 24 * HOUR;
@@ -28,6 +29,8 @@ const CHANNEL_NAMES: Record<ChannelId, string> = {
   ig: "Instagram",
   igc: "Instagram",
   fb: "Messenger",
+  fbc: "Facebook",
+  th: "Threads",
 };
 
 export function replyAvailability(
@@ -45,8 +48,9 @@ export function replyAvailability(
       : no("La ventana de 24 h está cerrada. Solo podés enviar una plantilla aprobada.");
   }
 
-  if (c.channel === "igc") {
+  if (isCommentChannel(c.channel)) {
     if (kind !== "comment_private") return ok();
+    if (!supportsPrivateReply(c.channel)) return no(`${CHANNEL_NAMES[c.channel]} no permite responder por privado.`);
     return age <= HUMAN_AGENT_WINDOW_SECONDS
       ? ok()
       : no("Pasaron más de 7 días desde el comentario: ya no se puede responder por privado.");
