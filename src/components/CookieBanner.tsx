@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface CookieConsent {
   analytics: boolean;
@@ -10,6 +11,8 @@ interface CookieConsent {
 export default function CookieBanner() {
   const [showBanner, setShowBanner] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // El panel interno (/admin) no muestra el banner: taparía la navegación inferior.
+  const pathname = usePathname();
 
   useEffect(() => {
     // Verificar si ya hay consentimiento guardado
@@ -131,7 +134,7 @@ export default function CookieBanner() {
     }, 300);
   };
 
-  if (!showBanner) return null;
+  if (!showBanner || pathname?.startsWith('/admin')) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card shadow-lg">

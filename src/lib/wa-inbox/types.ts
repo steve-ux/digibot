@@ -2,20 +2,49 @@
 // servidor, así que lo pueden usar tanto las rutas API como los componentes cliente.
 // Las fechas viajan como unix timestamp en segundos.
 
-export type MessageDirection = "in" | "out";
+import type { ChannelId } from "../crm/channels";
+
+// internal = notas del equipo y avisos del sistema (nunca salen hacia Meta).
+export type MessageDirection = "in" | "out" | "internal";
+// Quién escribió: el cliente, DigiBot (IA), una persona del equipo, el sistema o una nota interna.
+export type MessageAuthor = "customer" | "bot" | "agent" | "system" | "note";
+export type ConversationStatus = "open" | "resolved";
 export type MessageStatus = "received" | "sending" | "sent" | "delivered" | "read" | "failed";
+
+// Publicación de Instagram sobre la que comentó el cliente (canal igc).
+export interface InboxPost {
+  mediaId?: string;
+  caption: string;
+  likes: number;
+  comments: number;
+  thumbnailUrl: string | null;
+  permalink?: string | null;
+}
 
 export interface InboxConversation {
   id: number;
+  channel: ChannelId;
   phoneNumberId: string;
   waId: string;
   contactName: string | null;
   lastMessagePreview: string | null;
+  lastMessageAuthor: "customer" | "bot" | "agent" | null;
   lastMessageAt: number | null;
   lastInboundAt: number | null;
   unreadCount: number;
   // Segundos que quedan de la ventana de 24 h desde el último mensaje del cliente (0 = cerrada)
   windowSecondsLeft: number;
+  status: ConversationStatus;
+  // "IA respondiendo": DigiBot atiende el chat. Tomarlo lo pone en false.
+  botActive: boolean;
+  assigneeId: number | null;
+  tags: string[];
+  note: string;
+  createdAt: number;
+  sessionCount: number;
+  // Canales sin número (Instagram/Messenger): @usuario o nombre de la cuenta.
+  handle?: string | null;
+  post?: InboxPost | null;
 }
 
 export interface InboxMessage {
@@ -23,6 +52,9 @@ export interface InboxMessage {
   conversationId: number;
   wamid: string | null;
   direction: MessageDirection;
+  author: MessageAuthor;
+  authorName: string | null;
+  // Tipo de la API (text, image, template…) o del CRM (note, system, comment, comment_reply, private_reply).
   type: string;
   body: string | null;
   templateName: string | null;

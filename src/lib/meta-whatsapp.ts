@@ -49,7 +49,9 @@ class MetaApiError extends Error {
     message: string,
     public readonly httpStatus: number,
     public readonly code: number | null,
-    public readonly title: string | null
+    public readonly title: string | null,
+    // error_subcode de Meta (Messenger/Instagram lo usan para, ej., la ventana de 24 h)
+    public readonly subcode: number | null = null
   ) {
     super(message);
   }
@@ -114,7 +116,8 @@ async function graphFetch(path: string, init?: RequestInit) {
       message,
       res.status,
       typeof error?.code === "number" ? error.code : null,
-      error?.error_user_title || error?.message || null
+      error?.error_user_title || error?.message || null,
+      typeof error?.error_subcode === "number" ? error.error_subcode : null
     );
   }
 

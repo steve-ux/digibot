@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#F5F7FA;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:#0066FF;text-decoration:none}
+  a:hover{color:#0047B3}
+  input,textarea,select,button{font-family:inherit}
+  input::placeholder,textarea::placeholder{color:#9CA3AF}
+  @keyframes dot{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+  @keyframes rise{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+  @media (max-width:1280px){[data-contact]{display:none !important}}
+  @media (max-width:1020px){[data-side-label]{display:none !important}[data-side]{width:76px !important}}
+  html[data-theme="dark"] body{background:#121212}
+  html[data-theme="dark"] [data-s="page"]{background:#121212 !important;color:#fff !important}
+  html[data-theme="dark"] [data-s="side"]{background:#171717 !important;border-color:#2E2E2E !important}
+  html[data-theme="dark"] [data-s="card"]{background:#1C1C1C !important;border-color:#2E2E2E !important}
+  html[data-theme="dark"] [data-s="surf"]{background:#232323 !important;border-color:#2E2E2E !important;color:#fff !important}
+  html[data-theme="dark"] [data-s="ink"]{color:#fff !important}
+  html[data-theme="dark"] [data-s="muted"]{color:#9CA3AF !important}
+  html[data-theme="dark"] [data-s="bd"]{border-color:#2E2E2E !important}
+  html[data-theme="dark"] [data-s="in"]{background:#232323 !important;color:#fff !important}
+  html[data-theme="dark"] [data-s="botb"]{background:#14233D !important;color:#fff !important;border-color:#1F3A66 !important}
+  html[data-theme="dark"] [data-s="tint"]{background:#14233D !important;border-color:#1F3A66 !important}
+  html[data-theme="dark"] [data-s="note"]{background:#2A2410 !important;border-color:#4A3F16 !important;color:#FDE68A !important}
+</style>
+</helmet>
+<div data-s="page" style="display:flex;height:100vh;background:#F5F7FA;color:#1C1C1C;font-family:Inter,sans-serif;overflow:hidden">
+
+  <aside data-s="side" data-side="" style="width:236px;flex-shrink:0;background:#fff;border-right:1px solid #E8ECF2;display:flex;flex-direction:column;padding:20px 14px;gap:4px">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 10px 22px">
+      <svg width="30" height="30" viewBox="0 0 40 40" fill="none" aria-hidden="true" style="flex-shrink:0">
+        <path d="M6 12a8 8 0 0 1 8-8h12a8 8 0 0 1 8 8v8a8 8 0 0 1-8 8h-9l-6.4 5.6A1.2 1.2 0 0 1 8.6 32.7V28A8 8 0 0 1 6 22z" fill="#0066FF"></path>
+        <circle cx="14.5" cy="16.5" r="2.4" fill="#66FF99"></circle><circle cx="21" cy="16.5" r="2.4" fill="#66FF99"></circle><circle cx="27.5" cy="16.5" r="2.4" fill="#66FF99"></circle>
+      </svg>
+      <span data-s="ink" data-side-label="" style="font-family:Poppins,sans-serif;font-weight:800;font-size:20px;letter-spacing:-.5px;color:#1C1C1C">DigiBot</span>
+    </div>
+    <sc-for list="{{ navMain }}" as="n" hint-placeholder-count="2">
+      <button onClick="{{ n.go }}" title="{{ n.label }}" style="display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border:0;border-radius:12px;background:{{ n.bg }};color:{{ n.color }};font-weight:600;font-size:15px;cursor:pointer;text-align:left">
+        <span style="width:20px;height:20px;flex-shrink:0;background:currentColor;-webkit-mask:{{ n.mask }};mask:{{ n.mask }}"></span>
+        <span data-side-label="" style="flex:1">{{ n.label }}</span>
+        <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}">
+          <span data-side-label="" style="background:#0066FF;color:#fff;font-size:12px;font-weight:700;min-width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 7px">{{ n.badge }}</span>
+        </sc-if>
+      </button>
+    </sc-for>
+    <div data-s="muted" data-side-label="" style="font-size:11px;font-weight:700;letter-spacing:1.2px;color:#9CA3AF;padding:22px 14px 8px">ADMINISTRACIÓN</div>
+    <sc-for list="{{ navAdmin }}" as="n" hint-placeholder-count="2">
+      <button onClick="{{ n.go }}" title="{{ n.label }}" style="display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border:0;border-radius:12px;background:{{ n.bg }};color:{{ n.color }};font-weight:600;font-size:15px;cursor:pointer;text-align:left">
+        <span style="width:20px;height:20px;flex-shrink:0;background:currentColor;-webkit-mask:{{ n.mask }};mask:{{ n.mask }}"></span>
+        <span data-side-label="" style="flex:1">{{ n.label }}</span>
+      </button>
+    </sc-for>
+    <div style="flex:1"></div>
+    <button data-s="muted" onClick="{{ toggleTheme }}" title="Cambiar tema" style="display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border:0;border-radius:12px;background:transparent;color:#4B5563;font-weight:600;font-size:14px;cursor:pointer;text-align:left">
+      <span style="width:20px;height:20px;flex-shrink:0;background:currentColor;-webkit-mask:{{ themeMask }};mask:{{ themeMask }}"></span>
+      <span data-side-label="">{{ themeLabel }}</span>
+    </button>
+    <div data-s="bd" style="display:flex;align-items:center;gap:10px;padding:14px 8px 0;margin-top:8px;border-top:1px solid #E8ECF2">
+      <div style="width:38px;height:38px;border-radius:50%;background:#0066FF;color:#fff;display:flex;align-items:center;justify-content:center;font-family:Poppins,sans-serif;font-weight:700;font-size:14px;flex-shrink:0">EM</div>
+      <div data-side-label="" style="flex:1;min-width:0">
+        <div data-s="ink" style="font-weight:600;font-size:14px;color:#1C1C1C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Esteban Maldonado</div>
+        <div data-s="muted" style="font-size:12px;color:#6B7280">Administrador</div>
+      </div>
+      <button data-s="muted" data-side-label="" title="Cerrar sesión" style="width:34px;height:34px;border:0;background:transparent;color:#6B7280;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:10px" style-hover="color:#DC2626">
+        <span style="width:18px;height:18px;background:currentColor;-webkit-mask:url(assets/icons/logout.svg) center/contain no-repeat;mask:url(assets/icons/logout.svg) center/contain no-repeat"></span>
+      </button>
+    </div>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+
+    <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex:1;min-height:0">
+
+        <div data-s="side" style="width:360px;flex-shrink:0;background:#fff;border-right:1px solid #E8ECF2;display:flex;flex-direction:column;min-height:0">
+          <div style="padding:22px 20px 14px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <h1 data-s="ink" style="font-family:Poppins,sans-serif;font-weight:700;font-size:24px;letter-spacing:-.6px;margin:0;color:#1C1C1C">Bandeja</h1>
+              <span data-s="muted" style="font-size:14px;color:#6B7280">{{ listCountLabel }}</span>
+            </div>
+            <label data-s="surf" style="display:flex;align-items:center;gap:10px;background:#F5F7FA;border:1px solid #E8ECF2;border-radius:999px;padding:0 16px;height:44px;color:#9CA3AF">
+              <span style="width:18px;height:18px;flex-shrink:0;background:currentColor;-webkit-mask:url(assets/icons/search.svg) center/contain no-repeat;mask:url(assets/icons/search.svg) center/contain no-repeat"></span>
+              <input data-s="ink" value="{{ search }}" onChange="{{ onSearch }}" placeholder="Buscar por nombre o número" style="flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:15px;color:#1C1C1C" />
+            </label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <sc-for list="{{ channelTabs }}" as="t" hint-placeholder-count="5">
+                <button onClick="{{ t.go }}" title="{{ t.label }}" style="display:flex;align-items:center;gap:7px;height:36px;padding:0 13px;border-radius:999px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.color }};font-size:13px;font-weight:600;cursor:pointer">
+                  <sc-if value="{{ t.icon }}" hint-placeholder-val="{{ false }}"><img src="{{ t.icon }}" alt="" width="18" height="18" style="display:block" /></sc-if>
+                  <span>{{ t.label }}</span>
+                  <sc-if value="{{ t.count }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;opacity:.75">{{ t.count }}</span></sc-if>
+                </button>
+              </sc-for>
+            </div>
+            <div data-s="surf" style="display:flex;background:#F5F7FA;border-radius:12px;padding:4px;gap:2px">
+              <sc-for list="{{ statusTabs }}" as="t" hint-placeholder-count="4">
+                <button onClick="{{ t.go }}" style="flex:1;height:34px;border:0;border-radius:9px;background:{{ t.bg }};color:{{ t.color }};box-shadow:{{ t.shadow }};font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">{{ t.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:0 10px 14px">
+            <sc-for list="{{ list }}" as="c" hint-placeholder-count="6">
+              <button onClick="{{ c.open }}" style="display:flex;gap:12px;width:100%;padding:12px;border:0;border-radius:14px;background:{{ c.rowBg }};cursor:pointer;text-align:left;margin-bottom:2px;align-items:flex-start">
+                <div style="position:relative;flex-shrink:0">
+                  <div style="width:46px;height:46px;border-radius:50%;background:{{ c.avBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-family:Poppins,sans-serif;font-weight:600;font-size:15px">{{ c.initials }}</div>
+                  <img src="{{ c.chIcon }}" alt="{{ c.chName }}" width="20" height="20" style="position:absolute;right:-3px;bottom:-3px;border-radius:50%;border:2px solid #fff;display:block;box-sizing:content-box;background:#fff" />
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span data-s="ink" style="flex:1;min-width:0;font-weight:{{ c.nameW }};font-size:15px;color:#1C1C1C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                    <span style="font-size:12px;color:{{ c.timeColor }};font-weight:600;flex-shrink:0">{{ c.time }}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:3px">
+                    <span data-s="muted" style="flex:1;min-width:0;font-size:14px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.preview }}</span>
+                    <sc-if value="{{ c.unread }}" hint-placeholder-val="{{ false }}">
+                      <span style="background:#0066FF;color:#fff;font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 6px;flex-shrink:0">{{ c.unread }}</span>
+                    </sc-if>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap">
+                    <sc-if value="{{ c.bot }}" hint-placeholder-val="{{ false }}">
+                      <span data-s="tint" style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#0066FF;background:#F0F6FF;border:1px solid #D6E6FF;border-radius:999px;padding:3px 8px"><span style="width:6px;height:6px;border-radius:50%;background:#66FF99;box-shadow:0 0 0 1.5px #16A34A33"></span>IA respondiendo</span>
+                    </sc-if>
+                    <sc-if value="{{ c.assigneeShort }}" hint-placeholder-val="{{ false }}">
+                      <span data-s="surf" style="font-size:11px;font-weight:600;color:#4B5563;background:#F5F7FA;border:1px solid #E8ECF2;border-radius:999px;padding:3px 8px">{{ c.assigneeShort }}</span>
+                    </sc-if>
+                    <sc-if value="{{ c.closedWindow }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:11px;font-weight:600;color:#B45309;background:#FEF3C7;border-radius:999px;padding:3px 8px">Ventana cerrada</span>
+                    </sc-if>
+                  </div>
+                </div>
+              </button>
+            </sc-for>
+            <sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center;padding:48px 20px">
+                <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:16px;color:#1C1C1C">Todo al día</div>
+                <div data-s="muted" style="font-size:14px;color:#6B7280;margin-top:6px">No hay conversaciones en esta vista.</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+            <div data-s="side" style="display:flex;align-items:center;gap:14px;padding:14px 22px;background:#fff;border-bottom:1px solid #E8ECF2;flex-wrap:wrap">
+              <div style="position:relative;flex-shrink:0">
+                <div style="width:44px;height:44px;border-radius:50%;background:{{ sel.avBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-family:Poppins,sans-serif;font-weight:600;font-size:15px">{{ sel.initials }}</div>
+                <img src="{{ sel.chIcon }}" alt="" width="18" height="18" style="position:absolute;right:-3px;bottom:-3px;border-radius:50%;border:2px solid #fff;display:block;box-sizing:content-box;background:#fff" />
+              </div>
+              <div style="flex:1;min-width:160px">
+                <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:17px;color:#1C1C1C">{{ sel.name }}</div>
+                <div data-s="muted" style="font-size:13px;color:#6B7280;margin-top:1px">{{ sel.sub }}</div>
+              </div>
+              <sc-if value="{{ sel.isWa }}" hint-placeholder-val="{{ false }}">
+                <span title="WhatsApp permite responder libremente hasta 24 h después del último mensaje del cliente." style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:{{ sel.winColor }};background:{{ sel.winBg }};border-radius:999px;padding:7px 12px">
+                  <span style="width:15px;height:15px;background:currentColor;-webkit-mask:url(assets/icons/clock.svg) center/contain no-repeat;mask:url(assets/icons/clock.svg) center/contain no-repeat"></span>{{ sel.winLabel }}
+                </span>
+              </sc-if>
+              <sc-if value="{{ sel.botOn }}" hint-placeholder-val="{{ false }}">
+                <span data-s="tint" style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#0066FF;background:#F0F6FF;border:1px solid #D6E6FF;border-radius:999px;padding:6px 12px"><span style="width:8px;height:8px;border-radius:50%;background:#66FF99;box-shadow:0 0 0 2px #16A34A33"></span>Responde DigiBot</span>
+              </sc-if>
+              <sc-if value="{{ sel.isOpen }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ resolve }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 18px;border:0;border-radius:999px;background:#0066FF;color:#fff;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:#0047B3">
+                  <span style="width:17px;height:17px;background:currentColor;-webkit-mask:url(assets/icons/check.svg) center/contain no-repeat;mask:url(assets/icons/check.svg) center/contain no-repeat"></span>Resolver
+                </button>
+              </sc-if>
+              <button data-s="surf" onClick="{{ toggleContact }}" title="Datos del contacto" style="width:40px;height:40px;border-radius:999px;border:1px solid #E8ECF2;background:#fff;color:#4B5563;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="border-color:#0066FF;color:#0066FF">
+                <span style="width:18px;height:18px;background:currentColor;-webkit-mask:url(assets/icons/panel.svg) center/contain no-repeat;mask:url(assets/icons/panel.svg) center/contain no-repeat"></span>
+              </button>
+            </div>
+
+            <sc-if value="{{ sel.isComment }}" hint-placeholder-val="{{ false }}">
+              <div data-s="card" style="display:flex;gap:14px;align-items:center;padding:12px 22px;background:#fff;border-bottom:1px solid #E8ECF2">
+                <div style="width:56px;height:56px;border-radius:10px;flex-shrink:0;background:repeating-linear-gradient(135deg,#E8ECF2 0 6px,#F5F7FA 6px 12px);display:flex;align-items:center;justify-content:center;font-size:9px;color:#9CA3AF;font-weight:600;text-align:center">foto del post</div>
+                <div style="flex:1;min-width:0">
+                  <div data-s="muted" style="font-size:12px;font-weight:600;color:#6B7280">Comentó en tu publicación</div>
+                  <div data-s="ink" style="font-size:14px;color:#1C1C1C;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.postCaption }}</div>
+                </div>
+                <div data-s="muted" style="font-size:13px;color:#6B7280;flex-shrink:0">{{ sel.postStats }}</div>
+              </div>
+            </sc-if>
+
+            <div ref="{{ msgRef }}" style="flex:1;overflow-y:auto;padding:22px clamp(16px,4vw,48px);display:flex;flex-direction:column;gap:10px;background-color:{{ chatBgColor }};background-image:{{ chatBgImg }};background-size:360px auto">
+              <div data-s="in" style="align-self:center;font-size:12px;font-weight:600;color:#6B7280;background:#fff;border-radius:999px;padding:5px 12px;margin-bottom:6px">Hoy</div>
+              <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="3">
+                <sc-if value="{{ m.isIn }}" hint-placeholder-val="{{ false }}">
+                  <div style="align-self:flex-start;max-width:min(560px,78%)">
+                    <sc-if value="{{ m.label }}" hint-placeholder-val="{{ false }}"><div data-s="muted" style="font-size:11px;font-weight:600;color:#6B7280;margin:0 0 4px 4px">{{ m.label }}</div></sc-if>
+                    <div data-s="in" style="background:#fff;color:#1C1C1C;border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:15px;line-height:1.45;box-shadow:0 1px 1px rgba(0,0,0,.05)">
+                      <div style="white-space:pre-wrap;text-wrap:pretty">{{ m.t }}</div>
+                      <div style="font-size:11px;opacity:.6;margin-top:3px;text-align:right">{{ m.at }}</div>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ false }}">
+                  <div style="align-self:flex-end;max-width:min(560px,78%)">
+                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:11px;font-weight:700;color:#0066FF;margin:0 4px 4px 0">
+                      <svg width="14" height="14" viewBox="0 0 40 40" fill="none"><path d="M6 12a8 8 0 0 1 8-8h12a8 8 0 0 1 8 8v8a8 8 0 0 1-8 8h-9l-6.4 5.6A1.2 1.2 0 0 1 8.6 32.7V28A8 8 0 0 1 6 22z" fill="#0066FF"></path><circle cx="14.5" cy="16.5" r="2.4" fill="#66FF99"></circle><circle cx="21" cy="16.5" r="2.4" fill="#66FF99"></circle><circle cx="27.5" cy="16.5" r="2.4" fill="#66FF99"></circle></svg>
+                      {{ m.botLabel }}
+                    </div>
+                    <div data-s="botb" style="background:#E8F0FF;color:#1C1C1C;border:1px solid #D6E6FF;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:15px;line-height:1.45">
+                      <div style="white-space:pre-wrap;text-wrap:pretty">{{ m.t }}</div>
+                      <div style="font-size:11px;opacity:.6;margin-top:3px;text-align:right">{{ m.at }}</div>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ m.isOut }}" hint-placeholder-val="{{ false }}">
+                  <div style="align-self:flex-end;max-width:min(560px,78%);display:flex;flex-direction:column;align-items:flex-end">
+                    <sc-if value="{{ m.label }}" hint-placeholder-val="{{ false }}"><div data-s="muted" style="font-size:11px;font-weight:600;color:#6B7280;margin:0 4px 4px 0">{{ m.label }}</div></sc-if>
+                    <div style="background:{{ m.bg }};color:#fff;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:15px;line-height:1.45">
+                      <div style="white-space:pre-wrap;text-wrap:pretty">{{ m.t }}</div>
+                      <div style="font-size:11px;opacity:.85;margin-top:3px;text-align:right">{{ m.meta }}</div>
+                    </div>
+                    <sc-if value="{{ m.failed }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:flex-start;gap:10px;margin-top:6px;background:#FEF2F2;border:1px solid #FECACA;border-radius:14px;padding:10px 12px;max-width:420px">
+                        <span style="width:18px;height:18px;flex-shrink:0;margin-top:1px;background:#DC2626;-webkit-mask:url(assets/icons/alert.svg) center/contain no-repeat;mask:url(assets/icons/alert.svg) center/contain no-repeat"></span>
+                        <div style="flex:1">
+                          <div style="font-size:13px;font-weight:600;color:#991B1B">No se pudo enviar</div>
+                          <div style="font-size:13px;color:#7F1D1D;margin-top:2px;line-height:1.4">{{ m.err }}</div>
+                          <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+                            <button onClick="{{ m.retry }}" style="display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:0;border-radius:999px;background:#DC2626;color:#fff;font-size:12px;font-weight:700;cursor:pointer">
+                              <span style="width:13px;height:13px;background:currentColor;-webkit-mask:url(assets/icons/retry.svg) center/contain no-repeat;mask:url(assets/icons/retry.svg) center/contain no-repeat"></span>Reintentar
+                            </button>
+                            <span style="font-size:11px;color:#B91C1C;opacity:.8">Código {{ m.code }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}">
+                  <div data-s="note" style="align-self:flex-end;max-width:min(480px,78%);background:#FFFBEB;border:1px dashed #FCD34D;color:#78350F;border-radius:14px;padding:9px 13px;font-size:14px;line-height:1.45">
+                    <div style="font-size:11px;font-weight:700;margin-bottom:2px">Nota interna · {{ m.by }} · solo la ve tu equipo</div>{{ m.t }}
+                  </div>
+                </sc-if>
+                <sc-if value="{{ m.isSys }}" hint-placeholder-val="{{ false }}">
+                  <div data-s="muted" style="align-self:center;font-size:12px;color:#6B7280;font-weight:500;padding:4px 0">{{ m.t }}</div>
+                </sc-if>
+              </sc-for>
+            </div>
+
+            <div data-s="side" style="background:#fff;border-top:1px solid #E8ECF2;padding:14px 22px 18px">
+              <sc-if value="{{ mode.resolved }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                  <span style="width:34px;height:34px;border-radius:50%;background:#DCFCE7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="width:18px;height:18px;background:#16A34A;-webkit-mask:url(assets/icons/check.svg) center/contain no-repeat;mask:url(assets/icons/check.svg) center/contain no-repeat"></span></span>
+                  <div style="flex:1;min-width:200px"><div data-s="ink" style="font-weight:600;font-size:15px;color:#1C1C1C">Conversación resuelta</div><div data-s="muted" style="font-size:13px;color:#6B7280">Si el cliente vuelve a escribir, se reabre sola.</div></div>
+                  <button data-s="surf" onClick="{{ reopen }}" style="height:42px;padding:0 20px;border-radius:999px;border:1px solid #DDE3EC;background:#fff;color:#1C1C1C;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;cursor:pointer" style-hover="border-color:#0066FF;color:#0066FF">Reabrir</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ mode.bot }}" hint-placeholder-val="{{ false }}">
+                <div data-s="tint" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#F0F6FF;border:1px solid #D6E6FF;border-radius:18px;padding:14px 16px">
+                  <div style="background:#0066FF;border-radius:14px 14px 14px 4px;padding:11px 13px;display:flex;gap:5px;flex-shrink:0">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#66FF99;animation:dot 1.4s infinite"></span><span style="width:6px;height:6px;border-radius:50%;background:#66FF99;animation:dot 1.4s .2s infinite"></span><span style="width:6px;height:6px;border-radius:50%;background:#66FF99;animation:dot 1.4s .4s infinite"></span>
+                  </div>
+                  <div style="flex:1;min-width:200px"><div data-s="ink" style="font-weight:600;font-size:15px;color:#1C1C1C">DigiBot está atendiendo esta conversación</div><div data-s="muted" style="font-size:13px;color:#4B5563">Si querés responder vos, tomala. La IA se pausa solo en este chat.</div></div>
+                  <button onClick="{{ takeOver }}" style="height:44px;padding:0 22px;border:0;border-radius:999px;background:#0066FF;color:#fff;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:#0047B3">Tomar conversación</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ mode.gate }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#FFFBEB;border:1px solid #FDE68A;border-radius:18px;padding:14px 16px">
+                  <span style="width:22px;height:22px;flex-shrink:0;background:#B45309;-webkit-mask:url(assets/icons/lock.svg) center/contain no-repeat;mask:url(assets/icons/lock.svg) center/contain no-repeat"></span>
+                  <div style="flex:1;min-width:200px"><div style="font-weight:600;font-size:15px;color:#78350F">Pasaron más de 24 h desde su último mensaje</div><div style="font-size:13px;color:#92400E">WhatsApp solo deja retomar la charla con una plantilla aprobada.</div></div>
+                  <button onClick="{{ openTemplates }}" style="display:flex;align-items:center;gap:8px;height:44px;padding:0 20px;border:0;border-radius:999px;background:#0066FF;color:#fff;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:#0047B3">
+                    <span style="width:17px;height:17px;background:currentColor;-webkit-mask:url(assets/icons/template.svg) center/contain no-repeat;mask:url(assets/icons/template.svg) center/contain no-repeat"></span>Enviar plantilla
+                  </button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ mode.compose }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <sc-if value="{{ sel.isComment }}" hint-placeholder-val="{{ false }}">
+                      <div data-s="surf" style="display:flex;background:#F5F7FA;border-radius:999px;padding:3px;gap:2px;margin-right:6px">
+                        <sc-for list="{{ replyModes }}" as="r" hint-placeholder-count="2">
+                          <button onClick="{{ r.go }}" style="height:30px;padding:0 13px;border:0;border-radius:999px;background:{{ r.bg }};color:{{ r.color }};font-size:12px;font-weight:700;cursor:pointer">{{ r.label }}</button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-for list="{{ quickReplies }}" as="q" hint-placeholder-count="3">
+                      <button data-s="surf" onClick="{{ q.use }}" style="height:32px;padding:0 13px;border:1px solid #E8ECF2;border-radius:999px;background:#fff;color:#374151;font-size:13px;font-weight:500;cursor:pointer" style-hover="border-color:#0066FF;color:#0066FF">{{ q.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;gap:10px;align-items:flex-end">
+                    <button data-s="muted" title="Adjuntar archivo" style="width:46px;height:46px;flex-shrink:0;border:0;border-radius:50%;background:transparent;color:#6B7280;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="color:#0066FF">
+                      <span style="width:21px;height:21px;background:currentColor;-webkit-mask:url(assets/icons/clip.svg) center/contain no-repeat;mask:url(assets/icons/clip.svg) center/contain no-repeat"></span>
+                    </button>
+                    <textarea data-s="surf" rows="1" value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="{{ composerPlaceholder }}" style="flex:1;min-width:0;resize:none;border:1px solid #E8ECF2;background:#F5F7FA;border-radius:24px;padding:13px 18px;font-size:15px;line-height:1.4;color:#1C1C1C;outline:0;max-height:140px" style-focus="border-color:#0066FF"></textarea>
+                    <button onClick="{{ send }}" title="Enviar" style="width:46px;height:46px;flex-shrink:0;border:0;border-radius:50%;background:{{ sendBg }};color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center">
+                      <span style="width:20px;height:20px;background:currentColor;-webkit-mask:url(assets/icons/send.svg) center/contain no-repeat;mask:url(assets/icons/send.svg) center/contain no-repeat"></span>
+                    </button>
+                  </div>
+                  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12px">
+                    <span data-s="muted" style="color:#9CA3AF">Enter para enviar · Shift + Enter para salto de línea</span>
+                    <button onClick="{{ giveBack }}" style="border:0;background:transparent;color:#0066FF;font-size:12px;font-weight:600;cursor:pointer;padding:0;margin-left:auto">Devolver a DigiBot</button>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noSel }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:40px;text-align:center">
+              <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:18px;color:#1C1C1C">Elegí una conversación</div>
+              <div data-s="muted" style="font-size:14px;color:#6B7280">Todos tus canales llegan acá: WhatsApp, Instagram y Messenger.</div>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ showContact }}" hint-placeholder-val="{{ true }}">
+          <div data-s="side" data-contact="" style="width:300px;flex-shrink:0;background:#fff;border-left:1px solid #E8ECF2;overflow-y:auto;padding:26px 22px;display:flex;flex-direction:column;gap:24px">
+            <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+              <div style="width:72px;height:72px;border-radius:50%;background:{{ sel.avBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-family:Poppins,sans-serif;font-weight:600;font-size:24px">{{ sel.initials }}</div>
+              <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:17px;color:#1C1C1C;margin-top:4px">{{ sel.name }}</div>
+              <div data-s="surf" style="display:flex;align-items:center;gap:7px;font-size:13px;color:#4B5563;background:#F5F7FA;border-radius:999px;padding:5px 12px">
+                <img src="{{ sel.chIcon }}" alt="" width="16" height="16" style="display:block" />{{ sel.handle }}
+              </div>
+            </div>
+            <div>
+              <div data-s="muted" style="font-size:12px;font-weight:700;letter-spacing:.8px;color:#6B7280;margin-bottom:8px">ASIGNADA A</div>
+              <select data-s="surf" value="{{ sel.assignee }}" onChange="{{ assign }}" style="width:100%;height:44px;border:1px solid #E8ECF2;background:#F5F7FA;border-radius:12px;padding:0 12px;font-size:14px;color:#1C1C1C;cursor:pointer">
+                <option value="">Sin asignar</option>
+                <sc-for list="{{ agentOptions }}" as="a" hint-placeholder-count="3">
+                  <option value="{{ a.name }}">{{ a.label }}</option>
+                </sc-for>
+              </select>
+            </div>
+            <div>
+              <div data-s="muted" style="font-size:12px;font-weight:700;letter-spacing:.8px;color:#6B7280;margin-bottom:8px">ETIQUETAS</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ tagChips }}" as="t" hint-placeholder-count="5">
+                  <button onClick="{{ t.toggle }}" style="height:30px;padding:0 12px;border-radius:999px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.color }};font-size:12px;font-weight:600;cursor:pointer">{{ t.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <div data-s="muted" style="font-size:12px;font-weight:700;letter-spacing:.8px;color:#6B7280;margin-bottom:8px">NOTA INTERNA</div>
+              <textarea data-s="surf" value="{{ sel.note }}" onChange="{{ onNote }}" rows="3" placeholder="Algo que tu equipo deba saber de este cliente" style="width:100%;resize:vertical;border:1px solid #E8ECF2;background:#F5F7FA;border-radius:12px;padding:11px 12px;font-size:14px;line-height:1.4;color:#1C1C1C;outline:0" style-focus="border-color:#0066FF"></textarea>
+            </div>
+            <div data-s="bd" style="border-top:1px solid #E8ECF2;padding-top:18px;display:flex;flex-direction:column;gap:10px;font-size:14px">
+              <div style="display:flex;justify-content:space-between"><span data-s="muted" style="color:#6B7280">Primer contacto</span><span data-s="ink" style="color:#1C1C1C;font-weight:600">{{ sel.since }}</span></div>
+              <div style="display:flex;justify-content:space-between"><span data-s="muted" style="color:#6B7280">Conversaciones</span><span data-s="ink" style="color:#1C1C1C;font-weight:600">{{ sel.convCount }}</span></div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isMetrics }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;overflow-y:auto">
+        <div style="max-width:1200px;margin:0 auto;padding:36px clamp(20px,3vw,40px) 60px;display:flex;flex-direction:column;gap:22px">
+          <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:240px">
+              <h1 data-s="ink" style="font-family:Poppins,sans-serif;font-weight:700;font-size:30px;letter-spacing:-.8px;margin:0;color:#1C1C1C">Métricas</h1>
+              <p data-s="muted" style="font-size:15px;color:#6B7280;margin:6px 0 0">Cómo vienen respondiendo tu equipo y DigiBot en todos los canales.</p>
+            </div>
+            <div data-s="card" style="display:flex;background:#fff;border:1px solid #E8ECF2;border-radius:999px;padding:4px;gap:2px">
+              <sc-for list="{{ periods }}" as="p" hint-placeholder-count="3">
+                <button onClick="{{ p.go }}" style="height:36px;padding:0 16px;border:0;border-radius:999px;background:{{ p.bg }};color:{{ p.color }};font-size:14px;font-weight:600;cursor:pointer">{{ p.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+              <div data-s="card" style="background:#fff;border:1px solid #E8ECF2;border-radius:20px;padding:20px 22px">
+                <div data-s="muted" style="font-size:14px;color:#6B7280;font-weight:500">{{ k.label }}</div>
+                <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:700;font-size:34px;letter-spacing:-1px;color:#1C1C1C;margin-top:8px">{{ k.value }}</div>
+                <div style="font-size:13px;font-weight:600;color:{{ k.deltaColor }};margin-top:4px">{{ k.delta }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px">
+            <div data-s="card" style="background:#fff;border:1px solid #E8ECF2;border-radius:20px;padding:22px;grid-column:span 2;min-width:0">
+              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:22px">
+                <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:17px;color:#1C1C1C;flex:1">Conversaciones por canal</div>
+                <sc-for list="{{ legend }}" as="l" hint-placeholder-count="4">
+                  <span data-s="muted" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#4B5563"><span style="width:10px;height:10px;border-radius:3px;background:{{ l.color }}"></span>{{ l.label }}</span>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:clamp(6px,2vw,22px);height:220px">
+                <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7">
+                  <div style="flex:1;min-width:0;height:100%;display:flex;flex-direction:column;align-items:center;gap:8px">
+                    <div data-s="muted" style="font-size:12px;font-weight:600;color:#6B7280;margin-top:auto">{{ b.total }}</div>
+                    <div style="width:100%;max-width:46px;height:{{ b.h }};display:flex;flex-direction:column-reverse;border-radius:8px;overflow:hidden;gap:2px">
+                      <sc-for list="{{ b.segs }}" as="s" hint-placeholder-count="4"><div style="flex:{{ s.v }};background:{{ s.color }}"></div></sc-for>
+                    </div>
+                    <div data-s="muted" style="font-size:12px;color:#6B7280;white-space:nowrap">{{ b.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px">
+            <div data-s="card" style="background:#fff;border:1px solid #E8ECF2;border-radius:20px;padding:22px">
+              <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:17px;color:#1C1C1C;margin-bottom:18px">Quién respondió</div>
+              <div style="display:flex;height:14px;border-radius:999px;overflow:hidden;gap:3px">
+                <div style="flex:{{ split.bot }};background:#0066FF"></div><div style="flex:{{ split.team }};background:#66FF99"></div>
+              </div>
+              <div style="display:flex;gap:24px;margin-top:16px;flex-wrap:wrap">
+                <div><div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:700;font-size:24px;color:#1C1C1C">{{ split.botPct }}</div><div data-s="muted" style="font-size:13px;color:#6B7280;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#0066FF"></span>DigiBot, sin ayuda</div></div>
+                <div><div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:700;font-size:24px;color:#1C1C1C">{{ split.teamPct }}</div><div data-s="muted" style="font-size:13px;color:#6B7280;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#66FF99"></span>Tu equipo</div></div>
+              </div>
+              <div data-s="bd" style="border-top:1px solid #E8ECF2;margin-top:20px;padding-top:16px;display:flex;flex-direction:column;gap:12px">
+                <sc-for list="{{ channelShare }}" as="c" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <img src="{{ c.icon }}" alt="" width="22" height="22" style="display:block" />
+                    <span data-s="ink" style="font-size:14px;color:#1C1C1C;width:110px">{{ c.label }}</span>
+                    <div data-s="surf" style="flex:1;height:8px;background:#F5F7FA;border-radius:999px;overflow:hidden"><div style="height:100%;width:{{ c.w }};background:{{ c.color }};border-radius:999px"></div></div>
+                    <span data-s="ink" style="font-size:14px;font-weight:600;color:#1C1C1C;width:42px;text-align:right">{{ c.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div data-s="card" style="background:#fff;border:1px solid #E8ECF2;border-radius:20px;padding:22px;min-width:0">
+              <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:17px;color:#1C1C1C;margin-bottom:10px">Tu equipo</div>
+              <div data-s="muted" data-s2="" style="display:grid;grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr));gap:10px;font-size:12px;font-weight:700;color:#6B7280;padding:8px 0;letter-spacing:.4px">
+                <span>PERSONA</span><span style="text-align:right">ATENDIDAS</span><span style="text-align:right">RESPONDE EN</span><span style="text-align:right">RESUELTAS</span>
+              </div>
+              <sc-for list="{{ teamStats }}" as="t" hint-placeholder-count="3">
+                <div data-s="bd" style="display:grid;grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr));gap:10px;align-items:center;padding:12px 0;border-top:1px solid #E8ECF2;font-size:14px">
+                  <span style="display:flex;align-items:center;gap:10px;min-width:0"><span style="width:32px;height:32px;border-radius:50%;background:{{ t.avBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">{{ t.initials }}</span><span data-s="ink" style="color:#1C1C1C;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span></span>
+                  <span data-s="ink" style="text-align:right;color:#1C1C1C">{{ t.conv }}</span>
+                  <span data-s="ink" style="text-align:right;color:#1C1C1C">{{ t.resp }}</span>
+                  <span data-s="ink" style="text-align:right;color:#1C1C1C">{{ t.res }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isUsers }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;overflow-y:auto">
+        <div style="max-width:1100px;margin:0 auto;padding:36px clamp(20px,3vw,40px) 60px;display:flex;flex-direction:column;gap:22px">
+          <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:240px">
+              <h1 data-s="ink" style="font-family:Poppins,sans-serif;font-weight:700;font-size:30px;letter-spacing:-.8px;margin:0;color:#1C1C1C">Equipo</h1>
+              <p data-s="muted" style="font-size:15px;color:#6B7280;margin:6px 0 0">Las personas que pueden entrar al panel y qué canales ven.</p>
+            </div>
+            <button onClick="{{ openNewUser }}" style="display:flex;align-items:center;gap:8px;height:46px;padding:0 22px;border:0;border-radius:999px;background:#0066FF;color:#fff;font-family:Poppins,sans-serif;font-weight:600;font-size:15px;cursor:pointer" style-hover="background:#0047B3">
+              <span style="width:18px;height:18px;background:currentColor;-webkit-mask:url(assets/icons/plus.svg) center/contain no-repeat;mask:url(assets/icons/plus.svg) center/contain no-repeat"></span>Crear usuario
+            </button>
+          </div>
+          <div data-s="card" style="background:#fff;border:1px solid #E8ECF2;border-radius:20px;padding:6px 22px">
+            <sc-for list="{{ userRows }}" as="u" hint-placeholder-count="4">
+              <div data-s="bd" style="display:flex;align-items:center;gap:16px;padding:16px 0;border-top:{{ u.bt }};flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:12px;flex:1 1 240px;min-width:0">
+                  <div style="width:42px;height:42px;border-radius:50%;background:{{ u.avBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;flex-shrink:0">{{ u.initials }}</div>
+                  <div style="min-width:0">
+                    <div data-s="ink" style="font-weight:600;font-size:15px;color:#1C1C1C">{{ u.name }}</div>
+                    <div data-s="muted" style="font-size:13px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ u.email }}</div>
+                  </div>
+                </div>
+                <span data-s="tint" style="font-size:13px;font-weight:600;color:#0066FF;background:#F0F6FF;border:1px solid #D6E6FF;border-radius:999px;padding:5px 12px;flex-shrink:0">{{ u.role }}</span>
+                <div style="display:flex;gap:4px;flex:0 0 112px">
+                  <sc-for list="{{ u.chIcons }}" as="ic" hint-placeholder-count="2"><img src="{{ ic.src }}" alt="" width="22" height="22" style="display:block;opacity:{{ ic.op }}" /></sc-for>
+                </div>
+                <span style="font-size:13px;font-weight:600;color:{{ u.stColor }};flex:0 0 140px">{{ u.status }}</span>
+                <button data-s="surf" onClick="{{ u.edit }}" style="height:36px;padding:0 16px;border-radius:999px;border:1px solid #E8ECF2;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer" style-hover="border-color:#0066FF;color:#0066FF">Editar</button>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+            <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
+              <div data-s="card" style="background:#fff;border:1px solid #E8ECF2;border-radius:18px;padding:18px 20px">
+                <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:15px;color:#1C1C1C">{{ r.label }}</div>
+                <div data-s="muted" style="font-size:14px;color:#6B7280;margin-top:4px;line-height:1.45">{{ r.desc }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isChannels }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;overflow-y:auto">
+        <div style="max-width:1100px;margin:0 auto;padding:36px clamp(20px,3vw,40px) 60px;display:flex;flex-direction:column;gap:22px">
+          <div>
+            <h1 data-s="ink" style="font-family:Poppins,sans-serif;font-weight:700;font-size:30px;letter-spacing:-.8px;margin:0;color:#1C1C1C">Canales</h1>
+            <p data-s="muted" style="font-size:15px;color:#6B7280;margin:6px 0 0">Conectá tus cuentas y todos los mensajes llegan a la misma bandeja.</p>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+            <sc-for list="{{ channelCards }}" as="c" hint-placeholder-count="4">
+              <div data-s="card" style="background:#fff;border:1px solid #E8ECF2;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <img src="{{ c.icon }}" alt="" width="40" height="40" style="display:block" />
+                  <div style="flex:1">
+                    <div data-s="ink" style="font-family:Poppins,sans-serif;font-weight:600;font-size:16px;color:#1C1C1C">{{ c.name }}</div>
+                    <div style="font-size:13px;font-weight:600;color:{{ c.stColor }};display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:{{ c.stColor }}"></span>{{ c.status }}</div>
+                  </div>
+                </div>
+                <div data-s="muted" style="font-size:14px;color:#4B5563;line-height:1.45;flex:1">{{ c.desc }}</div>
+                <sc-if value="{{ c.connected }}" hint-placeholder-val="{{ true }}">
+                  <div data-s="surf" style="display:flex;align-items:center;gap:10px;background:#F5F7FA;border-radius:12px;padding:10px 12px">
+                    <span data-s="ink" style="flex:1;font-size:14px;font-weight:600;color:#1C1C1C">{{ c.account }}</span>
+                    <button onClick="{{ c.toggle }}" style="border:0;background:transparent;color:#6B7280;font-size:13px;font-weight:600;cursor:pointer" style-hover="color:#DC2626">Desconectar</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ c.disconnected }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ c.toggle }}" style="height:44px;border:0;border-radius:999px;background:#0066FF;color:#fff;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:#0047B3">Conectar {{ c.name }}</button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ tplOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100">
+      <div data-s="card" onClick="{{ stop }}" style="width:100%;max-width:540px;background:#fff;border-radius:24px;padding:26px;max-height:90vh;overflow-y:auto">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+          <div data-s="ink" style="flex:1;font-family:Poppins,sans-serif;font-weight:700;font-size:20px;color:#1C1C1C">Elegí una plantilla</div>
+          <button data-s="muted" onClick="{{ closeModal }}" style="width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:#6B7280;cursor:pointer;display:flex;align-items:center;justify-content:center"><span style="width:18px;height:18px;background:currentColor;-webkit-mask:url(assets/icons/x.svg) center/contain no-repeat;mask:url(assets/icons/x.svg) center/contain no-repeat"></span></button>
+        </div>
+        <div data-s="muted" style="font-size:14px;color:#6B7280;margin-bottom:18px">Son mensajes aprobados por WhatsApp. El nombre se completa solo.</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ templates }}" as="t" hint-placeholder-count="3">
+            <button data-s="surf" onClick="{{ t.send }}" style="text-align:left;border:1px solid #E8ECF2;background:#F5F7FA;border-radius:16px;padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:5px" style-hover="border-color:#0066FF">
+              <span style="font-size:12px;font-weight:700;color:#0066FF">{{ t.name }}</span>
+              <span data-s="ink" style="font-size:14px;color:#1C1C1C;line-height:1.45">{{ t.preview }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ userOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100">
+      <div data-s="card" onClick="{{ stop }}" style="width:100%;max-width:560px;background:#fff;border-radius:24px;padding:26px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div data-s="ink" style="flex:1;font-family:Poppins,sans-serif;font-weight:700;font-size:20px;color:#1C1C1C">{{ form.title }}</div>
+          <button data-s="muted" onClick="{{ closeModal }}" style="width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:#6B7280;cursor:pointer;display:flex;align-items:center;justify-content:center"><span style="width:18px;height:18px;background:currentColor;-webkit-mask:url(assets/icons/x.svg) center/contain no-repeat;mask:url(assets/icons/x.svg) center/contain no-repeat"></span></button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+          <label style="display:flex;flex-direction:column;gap:6px"><span data-s="ink" style="font-size:14px;font-weight:600;color:#1C1C1C">Nombre</span>
+            <input data-s="surf" value="{{ form.name }}" onChange="{{ form.onName }}" placeholder="Ej. Sofía Rivas" style="height:46px;border:1px solid #E8ECF2;background:#F5F7FA;border-radius:12px;padding:0 14px;font-size:15px;color:#1C1C1C;outline:0" style-focus="border-color:#0066FF" /></label>
+          <label style="display:flex;flex-direction:column;gap:6px"><span data-s="ink" style="font-size:14px;font-weight:600;color:#1C1C1C">Email</span>
+            <input data-s="surf" value="{{ form.email }}" onChange="{{ form.onEmail }}" placeholder="sofia@tunegocio.com" style="height:46px;border:1px solid #E8ECF2;background:#F5F7FA;border-radius:12px;padding:0 14px;font-size:15px;color:#1C1C1C;outline:0" style-focus="border-color:#0066FF" /></label>
+        </div>
+        <div>
+          <div data-s="ink" style="font-size:14px;font-weight:600;color:#1C1C1C;margin-bottom:8px">¿Qué puede hacer?</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ form.roles }}" as="r" hint-placeholder-count="3">
+              <button onClick="{{ r.pick }}" style="display:flex;gap:12px;align-items:flex-start;text-align:left;border:1.5px solid {{ r.bd }};background:{{ r.bg }};border-radius:14px;padding:12px 14px;cursor:pointer">
+                <span style="width:20px;height:20px;border-radius:50%;border:2px solid {{ r.dot }};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px"><span style="width:10px;height:10px;border-radius:50%;background:{{ r.fill }}"></span></span>
+                <span><span data-s="ink" style="display:block;font-weight:600;font-size:15px;color:#1C1C1C">{{ r.label }}</span><span data-s="muted" style="display:block;font-size:13px;color:#6B7280;margin-top:2px;line-height:1.4">{{ r.desc }}</span></span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        <div>
+          <div data-s="ink" style="font-size:14px;font-weight:600;color:#1C1C1C;margin-bottom:8px">Canales que ve</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ form.channels }}" as="c" hint-placeholder-count="4">
+              <button onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 10px;border-radius:999px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.color }};font-size:14px;font-weight:600;cursor:pointer">
+                <img src="{{ c.icon }}" alt="" width="20" height="20" style="display:block" />{{ c.label }}
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        <div data-s="tint" style="display:flex;gap:10px;align-items:center;background:#F0F6FF;border:1px solid #D6E6FF;border-radius:14px;padding:12px 14px;font-size:13px;color:#1E3A8A">
+          <span style="width:18px;height:18px;flex-shrink:0;background:#0066FF;-webkit-mask:url(assets/icons/mail.svg) center/contain no-repeat;mask:url(assets/icons/mail.svg) center/contain no-repeat"></span>
+          <span data-s="ink">{{ form.hint }}</span>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+          <button data-s="surf" onClick="{{ closeModal }}" style="height:46px;padding:0 22px;border-radius:999px;border:1px solid #DDE3EC;background:#fff;color:#1C1C1C;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;cursor:pointer">Cancelar</button>
+          <button onClick="{{ form.save }}" style="height:46px;padding:0 24px;border:0;border-radius:999px;background:{{ form.saveBg }};color:#fff;font-family:Poppins,sans-serif;font-weight:600;font-size:14px;cursor:{{ form.cursor }}">{{ form.saveLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#1C1C1C;color:#fff;border-radius:999px;padding:12px 20px 12px 14px;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;box-shadow:0 16px 40px -12px rgba(0,0,0,.4);z-index:200;animation:rise .25s ease-out">
+      <span style="width:24px;height:24px;border-radius:50%;background:#66FF99;display:flex;align-items:center;justify-content:center"><span style="width:14px;height:14px;background:#1C1C1C;-webkit-mask:url(assets/icons/check.svg) center/contain no-repeat;mask:url(assets/icons/check.svg) center/contain no-repeat"></span></span>
+      {{ toast }}
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;startView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;inbox&quot;,&quot;metrics&quot;,&quot;users&quot;,&quot;channels&quot;],&quot;default&quot;:&quot;inbox&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const ME = 'Esteban Maldonado';
+const CH = {
+  wa: { n: 'WhatsApp', i: 'assets/channels/wa.svg', c: '#25D366' },
+  ig: { n: 'Instagram', i: 'assets/channels/ig.svg', c: '#D62976' },
+  igc: { n: 'Comentarios', i: 'assets/channels/igc.svg', c: '#FA7E1E' },
+  fb: { n: 'Messenger', i: 'assets/channels/fb.svg', c: '#7B3CFF' }
+};
+const AV = ['#0066FF', '#7C3AED', '#0EA5A4', '#F97316', '#DB2777', '#16A34A', '#0891B2', '#9333EA', '#EA580C'];
+const TAGS = ['Cliente nuevo', 'Consulta de precio', 'Venta', 'Turno', 'Reclamo'];
+const ROLES = [
+  { id: 'admin', label: 'Administrador', desc: 'Ve todo, crea usuarios y conecta canales.' },
+  { id: 'super', label: 'Supervisor', desc: 'Ve todas las conversaciones y las métricas. No toca la configuración.' },
+  { id: 'agent', label: 'Agente', desc: 'Responde solo los canales que le asignes.' }
+];
+const TEMPLATES = [
+  { id: 't1', name: 'Seguimiento', text: '¡Hola [nombre]! Te escribimos de Óptica Sol para saber si pudiste resolver tu consulta. ¿Te ayudamos con algo más?' },
+  { id: 't2', name: 'Promoción', text: 'Hola [nombre], esta semana tenemos 20% off en multifocales. ¿Querés que te reservemos un turno?' },
+  { id: 't3', name: 'Pedido listo', text: 'Hola [nombre], tus anteojos ya están listos para retirar en sucursal. ¡Te esperamos!' }
+];
+const POST = { caption: 'Nueva colección otoño · 12 modelos en todas las sucursales', likes: 248, comments: 31 };
+const initials = n => n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+const now = () => { const d = new Date(); return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'); };
+
+const CONVS = [
+  { id: 1, name: 'Esteban Maldonado', ch: 'wa', handle: '+54 9 261 699-8830', time: '23:11', unread: 0, status: 'open', bot: false, assignee: ME, window: 1, tags: ['Cliente nuevo'], note: '', since: 'Hoy', count: 1, msgs: [
+    { f: 'in', t: 'Holis', at: '22:59' },
+    { f: 'out', t: 'Test exitoso', at: '23:02', failed: true, err: 'Este número todavía no está habilitado para recibir mensajes de prueba. Agregalo en la lista de números permitidos de Meta.', code: '131030' },
+    { f: 'out', t: 'Dije test exitoso', at: '23:11', st: 'Leído' }] },
+  { id: 2, name: 'Lucía Fernández', ch: 'wa', handle: '+54 9 261 455-1203', time: '11:04', unread: 2, status: 'open', bot: true, assignee: '', window: 23, tags: ['Turno'], note: '', since: 'Marzo 2026', count: 4, msgs: [
+    { f: 'in', t: 'Hola! Quería sacar turno para control de vista', at: '10:58' },
+    { f: 'bot', t: '¡Hola Lucía! Tenemos turnos el jueves a las 10:00 o a las 16:30. ¿Cuál te queda mejor?', at: '10:58' },
+    { f: 'in', t: 'El jueves a las 16:30', at: '11:03' },
+    { f: 'in', t: 'Atienden con obra social?', at: '11:04' }] },
+  { id: 3, name: 'Martina Gómez', ch: 'ig', handle: '@martu.gomez', time: '10:47', unread: 1, status: 'open', bot: false, assignee: 'Sofía Rivas', tags: ['Consulta de precio'], note: '', since: 'Ayer', count: 1, msgs: [
+    { f: 'in', t: 'Hola! Vi el reel de los lentes redondos, qué precio tienen?', at: '10:40' },
+    { f: 'bot', t: '¡Hola Martina! Los redondos están $52.000 con lentes polarizados incluidos. ¿Querés que te muestre los colores?', at: '10:40' },
+    { f: 'sys', t: 'Sofía Rivas tomó la conversación · DigiBot en pausa' },
+    { f: 'in', t: 'Sí porfa, y si tienen en carey', at: '10:47' }] },
+  { id: 4, name: 'Nicolás Ruiz', ch: 'igc', handle: '@nico_ruiz', time: '10:31', unread: 1, status: 'open', bot: false, assignee: '', tags: [], note: '', since: 'Hoy', count: 1, post: POST, msgs: [
+    { f: 'in', t: 'Precio de los de la segunda foto?', at: '10:31', label: 'Comentario' }] },
+  { id: 5, name: 'Carla Benítez', ch: 'fb', handle: 'Carla Benítez', time: '09:52', unread: 0, status: 'open', bot: false, assignee: 'Sofía Rivas', tags: ['Reclamo'], note: 'Compró Aviador dorado el 22/10.', since: 'Octubre 2026', count: 2, msgs: [
+    { f: 'in', t: 'Buen día, compré unos anteojos la semana pasada y se aflojó una patilla', at: '09:40' },
+    { f: 'out', t: '¡Hola Carla! Lamentamos lo que pasó. Acercate a cualquier sucursal y te lo ajustamos sin cargo.', at: '09:45', st: 'Leído' },
+    { f: 'note', t: 'Ofrecerle 10% en su próxima compra si vuelve a escribir.', by: 'Sofía' },
+    { f: 'in', t: 'Perfecto, paso hoy a la tarde. Gracias!', at: '09:52' }] },
+  { id: 6, name: 'Javier Ortiz', ch: 'wa', handle: '+54 9 261 312-7788', time: 'Ayer', unread: 0, status: 'open', bot: false, assignee: ME, window: 0, tags: ['Consulta de precio'], note: '', since: 'Ayer', count: 1, msgs: [
+    { f: 'in', t: 'Me pasás el precio de los multifocales?', at: 'Ayer 09:12' },
+    { f: 'bot', t: '¡Claro, Javier! Los multifocales arrancan en $185.000 con armazón incluido. ¿Querés que un asesor te llame?', at: 'Ayer 09:12' },
+    { f: 'in', t: 'Lo pienso y te aviso', at: 'Ayer 09:20' }] },
+  { id: 7, name: 'Valentina Sosa', ch: 'igc', handle: '@valen.sosa', time: 'Ayer', unread: 0, status: 'open', bot: true, assignee: '', tags: [], note: '', since: 'Ayer', count: 1, post: POST, msgs: [
+    { f: 'in', t: 'Hacen envíos a San Juan?', at: 'Ayer 18:05', label: 'Comentario' },
+    { f: 'bot', t: '¡Hola Valentina! Sí, enviamos a todo el país. Te escribimos por privado con los detalles.', at: 'Ayer 18:05', label: 'Respuesta pública' }] },
+  { id: 8, name: 'Marcos Díaz', ch: 'fb', handle: 'Marcos Díaz', time: 'Ayer', unread: 0, status: 'open', bot: true, assignee: '', tags: ['Venta'], note: '', since: 'Ayer', count: 1, msgs: [
+    { f: 'in', t: 'Quiero comprar el modelo Aviador negro', at: 'Ayer 16:20' },
+    { f: 'bot', t: '¡Excelente elección! Te dejo el link de pago: digibot.link/aviador. Apenas se acredite te avisamos.', at: 'Ayer 16:21' },
+    { f: 'in', t: 'Listo, ya pagué', at: 'Ayer 16:30' }] },
+  { id: 9, name: 'Ana Torres', ch: 'wa', handle: '+54 9 261 600-1122', time: 'Lun', unread: 0, status: 'resolved', bot: false, assignee: 'Diego Paz', window: 0, tags: ['Venta'], note: '', since: 'Agosto 2026', count: 6, msgs: [
+    { f: 'in', t: '¿Ya están mis lentes?', at: 'Lun 15:02' },
+    { f: 'out', t: '¡Sí Ana! Ya podés pasar a retirarlos.', at: 'Lun 15:10', st: 'Leído' },
+    { f: 'in', t: 'Genial, gracias!', at: 'Lun 15:11' }] }
+];
+const USERS = [
+  { id: 1, name: ME, email: 'esteban@opticasol.com', role: 'admin', ch: ['wa', 'ig', 'igc', 'fb'], status: 'active' },
+  { id: 2, name: 'Sofía Rivas', email: 'sofia@opticasol.com', role: 'agent', ch: ['wa', 'ig', 'igc'], status: 'active' },
+  { id: 3, name: 'Diego Paz', email: 'diego@opticasol.com', role: 'super', ch: ['wa', 'ig', 'igc', 'fb'], status: 'active' },
+  { id: 4, name: 'Camila Ortega', email: 'camila@opticasol.com', role: 'agent', ch: ['fb'], status: 'invited' }
+];
+const METRICS = {
+  today: { labels: ['8h', '10h', '12h', '14h', '16h', '18h', '20h', '22h'], wa: [3, 9, 12, 8, 11, 14, 9, 4], ig: [1, 4, 5, 3, 6, 7, 6, 2], igc: [0, 2, 2, 1, 3, 4, 3, 1], fb: [0, 1, 2, 1, 1, 2, 1, 0], k: ['46', '78%', '38 s', '5'], d: ['+8% vs ayer', '+3 pts vs ayer', '6 s más rápido', ''], team: [[12, '1 m 10 s', 11], [9, '2 m 05 s', 8], [4, '3 m 40 s', 4]] },
+  '7d': { labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'], wa: [42, 51, 48, 60, 55, 38, 22], ig: [18, 22, 20, 25, 30, 21, 12], igc: [8, 10, 7, 14, 16, 12, 9], fb: [5, 6, 4, 8, 7, 5, 3], k: ['557', '74%', '42 s', '5'], d: ['+12% vs semana anterior', '+5 pts', '9 s más rápido', ''], team: [[64, '1 m 25 s', 60], [51, '2 m 10 s', 47], [29, '3 m 05 s', 27]] },
+  '30d': { labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'], wa: [290, 312, 335, 316], ig: [120, 138, 151, 148], igc: [60, 71, 69, 76], fb: [30, 33, 36, 38], k: ['2.223', '72%', '45 s', '5'], d: ['+18% vs mes anterior', '+7 pts', '14 s más rápido', ''], team: [[251, '1 m 30 s', 238], [214, '2 m 15 s', 199], [118, '3 m 10 s', 110]] }
+};
+
+class Component extends DCLogic {
+  msgRef = React.createRef();
+  state = {
+    view: this.props.startView ?? 'inbox', theme: this.props.theme ?? 'light',
+    channel: 'all', status: 'open', search: '', selId: 1, draft: '', replyMode: 'public',
+    convs: CONVS, users: USERS, showContact: true, modal: null, form: null, toast: '', period: '7d',
+    conn: { wa: true, ig: true, igc: true, fb: false }
+  };
+  componentDidMount() { document.documentElement.dataset.theme = this.state.theme; this.scroll(); }
+  componentDidUpdate(pp, ps) {
+    if (pp.theme !== this.props.theme && this.props.theme) this.setState({ theme: this.props.theme });
+    if (pp.startView !== this.props.startView && this.props.startView) this.setState({ view: this.props.startView });
+    document.documentElement.dataset.theme = this.state.theme;
+    if (ps.selId !== this.state.selId || ps.convs !== this.state.convs || ps.view !== this.state.view) this.scroll();
+  }
+  scroll() { const el = this.msgRef.current; if (el) el.scrollTop = el.scrollHeight; }
+  flash(t) { clearTimeout(this._t); this.setState({ toast: t }); this._t = setTimeout(() => this.setState({ toast: '' }), 2400); }
+  upd(id, fn) { this.setState(s => ({ convs: s.convs.map(c => c.id === id ? fn(c) : c) })); }
+  sendMsg(text, extra = {}) {
+    const s = this.state, id = s.selId, sel = s.convs.find(c => c.id === id);
+    const label = sel.ch === 'igc' ? (s.replyMode === 'public' ? 'Respuesta pública' : 'Mensaje privado') : extra.label;
+    const key = Date.now();
+    this.upd(id, c => ({ ...c, time: now(), msgs: [...c.msgs, { f: 'out', t: text, at: now(), st: 'Enviado', key, label }] }));
+    setTimeout(() => this.upd(id, c => ({ ...c, msgs: c.msgs.map(m => m.key === key ? { ...m, st: 'Leído' } : m) })), 1800);
+  }
+  matches(c, s) {
+    if (s.channel !== 'all' && c.ch !== s.channel) return false;
+    if (s.search && !(c.name + ' ' + c.handle).toLowerCase().includes(s.search.toLowerCase())) return false;
+    const last = [...c.msgs].reverse().find(m => m.f !== 'sys' && m.f !== 'note');
+    if (s.status === 'open') return c.status !== 'resolved';
+    if (s.status === 'pending') return c.status !== 'resolved' && last && last.f === 'in';
+    if (s.status === 'mine') return c.status !== 'resolved' && c.assignee === ME;
+    if (s.status === 'resolved') return c.status === 'resolved';
+    return true;
+  }
+
+  renderVals() {
+    const s = this.state, dark = s.theme === 'dark';
+    const P = dark
+      ? { sel: '#14233D', chip: '#232323', chipBd: '#2E2E2E', chipInk: '#D1D5DB', navOn: '#14233D', navInk: '#D1D5DB', segOn: '#2E2E2E', segInk: '#fff', segShadow: 'none' }
+      : { sel: '#F0F6FF', chip: '#fff', chipBd: '#E8ECF2', chipInk: '#374151', navOn: '#F0F6FF', navInk: '#4B5563', segOn: '#fff', segInk: '#1C1C1C', segShadow: '0 1px 3px rgba(0,0,0,.1)' };
+    const mask = k => `url(assets/icons/${k}.svg) center/contain no-repeat`;
+    const go = v => () => this.setState({ view: v });
+    const unreadTotal = s.convs.reduce((a, c) => a + (c.status !== 'resolved' ? c.unread : 0), 0);
+    const nav = (id, label, icon, badge) => ({ label, mask: mask(icon), go: go(id), badge, bg: s.view === id ? P.navOn : 'transparent', color: s.view === id ? '#0066FF' : P.navInk });
+
+    const list = s.convs.filter(c => this.matches(c, s)).map(c => {
+      const last = [...c.msgs].reverse().find(m => m.f !== 'sys' && m.f !== 'note');
+      const pre = last ? (last.f === 'out' ? 'Vos: ' : last.f === 'bot' ? 'DigiBot: ' : '') + last.t : '';
+      return {
+        ...c, initials: initials(c.name), avBg: AV[(c.id - 1) % AV.length], chIcon: CH[c.ch].i, chName: CH[c.ch].n,
+        preview: pre, unread: c.unread || false, bot: c.bot && c.status !== 'resolved',
+        assigneeShort: c.assignee && !c.bot ? (c.assignee === ME ? 'Vos' : c.assignee.split(' ')[0]) : false,
+        closedWindow: c.ch === 'wa' && c.window === 0 && c.status !== 'resolved' && !c.bot,
+        rowBg: c.id === s.selId ? P.sel : 'transparent', nameW: c.unread ? 700 : 600, timeColor: c.unread ? '#0066FF' : '#9CA3AF',
+        open: () => { this.setState({ selId: c.id, draft: '' }); this.upd(c.id, x => ({ ...x, unread: 0 })); }
+      };
+    });
+    const openCount = ch => s.convs.filter(c => c.status !== 'resolved' && (ch === 'all' || c.ch === ch)).length;
+    const channelTabs = [['all', 'Todos'], ['wa'], ['ig'], ['igc'], ['fb']].map(([id, l]) => {
+      const on = s.channel === id;
+      return { label: l || CH[id].n, icon: id === 'all' ? false : CH[id].i, count: openCount(id) || false, go: () => this.setState({ channel: id }),
+        bg: on ? '#0066FF' : P.chip, color: on ? '#fff' : P.chipInk, bd: on ? '#0066FF' : P.chipBd };
+    });
+    const statusTabs = [['open', 'Abiertas'], ['pending', 'Sin responder'], ['mine', 'Mías'], ['resolved', 'Resueltas']].map(([id, l]) => ({
+      label: l, go: () => this.setState({ status: id }), bg: s.status === id ? P.segOn : 'transparent', color: s.status === id ? P.segInk : '#6B7280', shadow: s.status === id ? P.segShadow : 'none'
+    }));
+
+    const raw = s.convs.find(c => c.id === s.selId);
+    let sel = {}, msgs = [], mode = {};
+    if (raw) {
+      const isWa = raw.ch === 'wa', closed = isWa && raw.window === 0;
+      sel = {
+        ...raw, initials: initials(raw.name), avBg: AV[(raw.id - 1) % AV.length], chIcon: CH[raw.ch].i,
+        sub: raw.handle + ' · ' + (raw.ch === 'igc' ? 'Comentario en Instagram' : CH[raw.ch].n),
+        isWa, isComment: raw.ch === 'igc', isOpen: raw.status !== 'resolved', botOn: raw.bot && raw.status !== 'resolved',
+        winLabel: closed ? 'Ventana cerrada' : `Ventana abierta · quedan ${raw.window} h`,
+        winColor: closed ? '#B45309' : '#15803D', winBg: closed ? '#FEF3C7' : '#DCFCE7',
+        postCaption: raw.post?.caption, postStats: raw.post ? `${raw.post.likes} me gusta · ${raw.post.comments} comentarios` : '',
+        convCount: raw.count
+      };
+      msgs = raw.msgs.map((m, i) => ({
+        ...m, isIn: m.f === 'in', isOut: m.f === 'out', isBot: m.f === 'bot', isNote: m.f === 'note', isSys: m.f === 'sys',
+        label: m.label || false, failed: !!m.failed, bg: m.failed ? '#94A3B8' : '#0066FF',
+        meta: m.failed ? m.at + ' · No enviado' : m.at + (m.st ? ' · ' + m.st : ''),
+        botLabel: m.label ? 'DigiBot · ' + m.label : 'Respondió DigiBot',
+        retry: () => { this.upd(raw.id, c => ({ ...c, msgs: c.msgs.map((x, j) => j === i ? { ...x, failed: false, st: 'Enviado' } : x) })); this.flash('Mensaje reenviado'); }
+      }));
+      mode = { resolved: raw.status === 'resolved', bot: raw.status !== 'resolved' && raw.bot, gate: raw.status !== 'resolved' && !raw.bot && closed, compose: raw.status !== 'resolved' && !raw.bot && !closed };
+    }
+    const tagChips = TAGS.map(t => {
+      const on = raw && raw.tags.includes(t);
+      return { label: t, bg: on ? '#0066FF' : P.chip, color: on ? '#fff' : P.chipInk, bd: on ? '#0066FF' : P.chipBd,
+        toggle: () => this.upd(raw.id, c => ({ ...c, tags: on ? c.tags.filter(x => x !== t) : [...c.tags, t] })) };
+    });
+
+    const M = METRICS[s.period];
+    const totals = M.labels.map((_, i) => M.wa[i] + M.ig[i] + M.igc[i] + M.fb[i]);
+    const max = Math.max(...totals);
+    const bars = M.labels.map((l, i) => ({ label: l, total: totals[i], h: Math.max(4, Math.round(totals[i] / max * 170)) + 'px',
+      segs: ['wa', 'ig', 'igc', 'fb'].map(k => ({ v: M[k][i], color: CH[k].c })) }));
+    const sum = k => M[k].reduce((a, b) => a + b, 0);
+    const all = ['wa', 'ig', 'igc', 'fb'].reduce((a, k) => a + sum(k), 0);
+    const botPct = parseInt(M.k[1]);
+    const agents = s.users.filter(u => u.status === 'active');
+
+    const f = s.form;
+    const formVals = f ? {
+      title: f.id ? 'Editar usuario' : 'Crear usuario', name: f.name, email: f.email,
+      onName: e => this.setState({ form: { ...f, name: e.target.value } }), onEmail: e => this.setState({ form: { ...f, email: e.target.value } }),
+      roles: ROLES.map(r => { const on = f.role === r.id; return { ...r, pick: () => this.setState({ form: { ...f, role: r.id } }), bd: on ? '#0066FF' : P.chipBd, bg: on ? P.sel : 'transparent', dot: on ? '#0066FF' : '#CBD5E1', fill: on ? '#0066FF' : 'transparent' }; }),
+      channels: ['wa', 'ig', 'igc', 'fb'].map(k => { const on = f.ch.includes(k); return { label: CH[k].n, icon: CH[k].i, bd: on ? '#0066FF' : P.chipBd, bg: on ? P.sel : 'transparent', color: on ? '#0066FF' : P.chipInk,
+        toggle: () => this.setState({ form: { ...f, ch: on ? f.ch.filter(x => x !== k) : [...f.ch, k] } }) }; }),
+      hint: f.id ? 'Los cambios se aplican la próxima vez que entre al panel.' : 'Le llega un email para crear su contraseña. Listo, no hay que hacer nada más.',
+      saveLabel: f.id ? 'Guardar cambios' : 'Enviar invitación',
+      saveBg: f.name && /\S+@\S+\.\S+/.test(f.email) ? '#0066FF' : '#9CB8E8', cursor: f.name && f.email ? 'pointer' : 'not-allowed',
+      save: () => {
+        if (!f.name || !/\S+@\S+\.\S+/.test(f.email)) return;
+        if (f.id) this.setState(st => ({ users: st.users.map(u => u.id === f.id ? { ...u, ...f } : u), modal: null }));
+        else this.setState(st => ({ users: [...st.users, { ...f, id: Date.now(), status: 'invited' }], modal: null }));
+        this.flash(f.id ? 'Cambios guardados' : 'Invitación enviada a ' + f.email);
+      }
+    } : {};
+
+    const chanDesc = { wa: 'Mensajes del número de tu negocio, con plantillas aprobadas.', ig: 'Mensajes directos de tu cuenta de Instagram.', igc: 'Comentarios en tus publicaciones. Respondé en público o por privado.', fb: 'Mensajes de tu página de Facebook.' };
+    const chanAcc = { wa: '+54 9 261 555-0100', ig: '@opticasol', igc: '@opticasol', fb: 'Óptica Sol' };
+
+    return {
+      navMain: [nav('inbox', 'Bandeja', 'inbox', unreadTotal || false), nav('metrics', 'Métricas', 'chart')],
+      navAdmin: [nav('users', 'Equipo', 'users'), nav('channels', 'Canales', 'plug')],
+      themeMask: mask(dark ? 'sun' : 'moon'), themeLabel: dark ? 'Modo claro' : 'Modo oscuro',
+      toggleTheme: () => this.setState({ theme: dark ? 'light' : 'dark' }),
+      isInbox: s.view === 'inbox', isMetrics: s.view === 'metrics', isUsers: s.view === 'users', isChannels: s.view === 'channels',
+
+      search: s.search, onSearch: e => this.setState({ search: e.target.value }),
+      channelTabs, statusTabs, list, listEmpty: list.length === 0, listCountLabel: `${openCount('all')} abiertas`,
+      hasSel: !!raw, noSel: !raw, sel, msgs, mode, msgRef: this.msgRef,
+      chatBgColor: raw && raw.ch === 'wa' ? (dark ? '#0B141A' : '#EFEAE2') : (dark ? '#121212' : '#F5F7FA'),
+      chatBgImg: raw && raw.ch === 'wa' ? `url(assets/${dark ? 'wa-chat-bg-dark' : 'wa-chat-bg'}.png)` : 'none',
+      showContact: s.showContact && !!raw, toggleContact: () => this.setState({ showContact: !s.showContact }),
+      draft: s.draft, onDraft: e => this.setState({ draft: e.target.value }),
+      onKey: e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (s.draft.trim()) { this.sendMsg(s.draft.trim()); this.setState({ draft: '' }); } } },
+      send: () => { if (s.draft.trim()) { this.sendMsg(s.draft.trim()); this.setState({ draft: '' }); } },
+      sendBg: s.draft.trim() ? '#0066FF' : '#9CB8E8',
+      composerPlaceholder: raw && raw.ch === 'igc' ? (s.replyMode === 'public' ? 'Respondé el comentario (lo ve todo el mundo)' : 'Escribile por mensaje privado') : 'Escribí un mensaje…',
+      replyModes: [['public', 'En público'], ['private', 'Por privado']].map(([id, l]) => ({ label: l, go: () => this.setState({ replyMode: id }), bg: s.replyMode === id ? '#0066FF' : 'transparent', color: s.replyMode === id ? '#fff' : '#6B7280' })),
+      quickReplies: ['¡Hola! ¿En qué te ayudo?', 'Te paso los precios', 'Gracias por escribirnos'].map(q => ({ label: q, use: () => this.setState({ draft: q }) })),
+      takeOver: () => { this.upd(s.selId, c => ({ ...c, bot: false, assignee: ME, msgs: [...c.msgs, { f: 'sys', t: 'Tomaste la conversación · DigiBot en pausa en este chat' }] })); this.flash('Ahora respondés vos'); },
+      giveBack: () => { this.upd(s.selId, c => ({ ...c, bot: true, msgs: [...c.msgs, { f: 'sys', t: 'DigiBot volvió a responder' }] })); this.flash('DigiBot retoma la conversación'); },
+      resolve: () => { this.upd(s.selId, c => ({ ...c, status: 'resolved', unread: 0 })); this.flash('Conversación resuelta'); },
+      reopen: () => { this.upd(s.selId, c => ({ ...c, status: 'open' })); this.flash('Conversación reabierta'); },
+      assign: e => { const v = e.target.value; this.upd(s.selId, c => ({ ...c, assignee: v })); this.flash(v ? 'Asignada a ' + (v === ME ? 'vos' : v) : 'Sin asignar'); },
+      agentOptions: agents.map(u => ({ name: u.name, label: u.name === ME ? u.name + ' (vos)' : u.name })),
+      tagChips, onNote: e => { const v = e.target.value; this.upd(s.selId, c => ({ ...c, note: v })); },
+
+      tplOpen: s.modal === 'tpl', openTemplates: () => this.setState({ modal: 'tpl' }),
+      templates: TEMPLATES.map(t => ({ ...t, preview: t.text.replace('[nombre]', raw ? raw.name.split(' ')[0] : ''),
+        send: () => { this.sendMsg(t.text.replace('[nombre]', raw.name.split(' ')[0]), { label: 'Plantilla · ' + t.name }); this.setState({ modal: null }); this.flash('Plantilla enviada'); } })),
+      closeModal: () => this.setState({ modal: null }), stop: e => e.stopPropagation(),
+
+      periods: [['today', 'Hoy'], ['7d', '7 días'], ['30d', '30 días']].map(([id, l]) => ({ label: l, go: () => this.setState({ period: id }), bg: s.period === id ? '#0066FF' : 'transparent', color: s.period === id ? '#fff' : P.chipInk })),
+      kpis: ['Conversaciones', 'Resueltas por DigiBot', 'Primera respuesta, promedio', 'Esperando respuesta ahora'].map((l, i) => ({ label: l, value: M.k[i], delta: M.d[i] || 'Revisalas en la Bandeja', deltaColor: M.d[i] ? '#16A34A' : '#B45309' })),
+      legend: ['wa', 'ig', 'igc', 'fb'].map(k => ({ label: CH[k].n, color: CH[k].c })), bars,
+      split: { bot: botPct, team: 100 - botPct, botPct: botPct + '%', teamPct: (100 - botPct) + '%' },
+      channelShare: ['wa', 'ig', 'igc', 'fb'].map(k => ({ label: CH[k].n, icon: CH[k].i, color: CH[k].c, v: Math.round(sum(k) / all * 100) + '%', w: Math.round(sum(k) / all * 100) + '%' })),
+      teamStats: ['Esteban Maldonado', 'Sofía Rivas', 'Diego Paz'].map((n, i) => ({ name: n, initials: initials(n), avBg: AV[i * 2 % AV.length], conv: M.team[i][0], resp: M.team[i][1], res: M.team[i][2] })),
+
+      openNewUser: () => this.setState({ modal: 'user', form: { name: '', email: '', role: 'agent', ch: ['wa'] } }),
+      userOpen: s.modal === 'user', form: formVals, roles: ROLES,
+      userRows: s.users.map((u, i) => ({
+        ...u, initials: initials(u.name), avBg: AV[i * 2 % AV.length], role: ROLES.find(r => r.id === u.role).label,
+        name: u.name === ME ? u.name + ' (vos)' : u.name, bt: i ? '1px solid #E8ECF2' : '0',
+        chIcons: ['wa', 'ig', 'igc', 'fb'].map(k => ({ src: CH[k].i, op: u.ch.includes(k) ? 1 : .18 })),
+        status: u.status === 'active' ? 'Activo' : 'Invitación enviada', stColor: u.status === 'active' ? '#16A34A' : '#B45309',
+        edit: () => this.setState({ modal: 'user', form: { id: u.id, name: u.name, email: u.email, role: u.role, ch: [...u.ch] } })
+      })),
+
+      channelCards: ['wa', 'ig', 'igc', 'fb'].map(k => {
+        const on = s.conn[k];
+        return { name: k === 'igc' ? 'Comentarios de Instagram' : CH[k].n, icon: CH[k].i, desc: chanDesc[k], connected: on, disconnected: !on,
+          status: on ? 'Conectado' : 'Sin conectar', stColor: on ? '#16A34A' : '#9CA3AF', account: chanAcc[k],
+          toggle: () => { this.setState({ conn: { ...s.conn, [k]: !on } }); this.flash(on ? CH[k].n + ' desconectado' : CH[k].n + ' conectado'); } };
+      }),
+      toast: s.toast || false
+    };
+  }
+}
+</script>
+</body>
+</html>

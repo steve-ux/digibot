@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/webhooks/whatsapp/route";
 import { setInboxStore } from "@/lib/wa-inbox/store";
-import { MemoryInboxStore } from "./helpers/memory-store";
+import { MemoryInboxStore } from "@/lib/wa-inbox/memory-store";
 import { CUSTOMER_WA_ID, PHONE_NUMBER_ID, statusPayload, textMessagePayload } from "./helpers/payloads";
 
 const APP_SECRET = "test-app-secret";

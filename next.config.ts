@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Permite un segundo dev/build en otra carpeta sin pisar el .next del dev server principal.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone", // build para Docker/Node server (ya no export estático: la web ahora tiene backend)
   // Se inyecta en el build (también en el bundle del navegador, el Footer se usa en
   // componentes cliente). En la VPS la setea scripts/deploy.sh en el .env.

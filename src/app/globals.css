@@ -84,6 +84,96 @@
   }
 }
 
+/* ------------------------------------------------------------------
+   Tokens del CRM (/admin). Se consumen desde Tailwind como `crm-*`
+   (ver tailwind.config.ts). Claro por defecto, oscuro con .dark.
+   ------------------------------------------------------------------ */
+@layer base {
+  :root {
+    --crm-primary: #0066ff;
+    --crm-primary-hover: #0047b3;
+    --crm-primary-soft: #9cb8e8; /* botón principal deshabilitado */
+    --crm-accent: #66ff99;
+    --crm-ink: #1c1c1c;
+    --crm-ink-2: #374151; /* texto de chips y botones secundarios */
+    --crm-nav: #4b5563;
+    --crm-muted: #6b7280;
+    --crm-subtle: #9ca3af; /* solo placeholders/decorativo: no pasa AA como texto */
+    --crm-bg: #f5f7fa;
+    --crm-side: #ffffff;
+    --crm-card: #ffffff;
+    --crm-surf: #f5f7fa; /* inputs, segmentados */
+    --crm-chip: #ffffff;
+    --crm-seg-on: #ffffff;
+    --crm-border: #e8ecf2;
+    --crm-border-2: #dde3ec;
+    --crm-tint: #f0f6ff;
+    --crm-tint-border: #d6e6ff;
+    --crm-bot-bubble: #e8f0ff;
+    --crm-in-bubble: #ffffff;
+    --crm-note: #fffbeb;
+    --crm-note-border: #fcd34d;
+    --crm-note-ink: #78350f;
+    --crm-success: #16a34a;
+    --crm-success-ink: #15803d;
+    --crm-success-bg: #dcfce7;
+    --crm-warn: #b45309;
+    --crm-warn-ink: #78350f;
+    --crm-warn-ink-2: #92400e;
+    --crm-warn-bg: #fef3c7;
+    --crm-warn-soft: #fffbeb;
+    --crm-warn-border: #fde68a;
+    --crm-error: #dc2626;
+    --crm-error-ink: #991b1b;
+    --crm-error-ink-2: #7f1d1d;
+    --crm-error-bg: #fef2f2;
+    --crm-error-border: #fecaca;
+    --crm-overlay: rgba(17, 24, 39, 0.45);
+    --crm-chat-wa: #efeae2;
+    --crm-ch-wa: #25d366;
+    --crm-ch-ig: #d62976;
+    --crm-ch-igc: #fa7e1e;
+    --crm-ch-fb: #7b3cff;
+  }
+
+  .dark {
+    --crm-ink: #ffffff;
+    --crm-ink-2: #d1d5db;
+    --crm-nav: #d1d5db;
+    --crm-muted: #9ca3af;
+    --crm-subtle: #6b7280;
+    --crm-bg: #121212;
+    --crm-side: #171717;
+    --crm-card: #1c1c1c;
+    --crm-surf: #232323;
+    --crm-chip: #232323;
+    --crm-seg-on: #2e2e2e;
+    --crm-border: #2e2e2e;
+    --crm-border-2: #3a3a3a;
+    --crm-tint: #14233d;
+    --crm-tint-border: #1f3a66;
+    --crm-bot-bubble: #14233d;
+    --crm-in-bubble: #232323;
+    --crm-note: #2a2410;
+    --crm-note-border: #4a3f16;
+    --crm-note-ink: #fde68a;
+    --crm-success-ink: #4ade80;
+    --crm-success-bg: #12301d;
+    --crm-warn-ink: #fde68a;
+    --crm-warn-ink-2: #fcd34d;
+    --crm-warn-bg: #3a2c0b;
+    --crm-warn-soft: #2a2410;
+    --crm-warn-border: #4a3f16;
+    --crm-warn: #fbbf24;
+    --crm-error-ink: #fca5a5;
+    --crm-error-ink-2: #fecaca;
+    --crm-error-bg: #2a1414;
+    --crm-error-border: #5b2121;
+    --crm-overlay: rgba(0, 0, 0, 0.6);
+    --crm-chat-wa: #0b141a;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -122,6 +212,71 @@ html {
 .dark .chat-pattern {
   background-color: #0b141a;
   background-image: url("/fondo-whatsapp-negro.png");
+}
+
+/* ---------------- CRM ---------------- */
+
+/* Ícono monocromo que toma el color del texto (ver components/crm/Icon.tsx) */
+.crm-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  background-color: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+/* Fondo de chat con patrón de WhatsApp: solo en conversaciones de ese canal */
+.crm-chat-wa {
+  background-color: var(--crm-chat-wa);
+  background-image: url("/fondo-whatsapp-blanco.png");
+  background-size: 360px auto;
+}
+.dark .crm-chat-wa {
+  background-image: url("/fondo-whatsapp-negro.png");
+}
+
+/* Foco visible y consistente en todo el panel */
+.crm-root :focus-visible {
+  outline: 2px solid var(--crm-primary);
+  outline-offset: 2px;
+}
+
+.crm-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes crm-rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes crm-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes crm-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 /* Detalles nativos de FAQ sin flecha por defecto */

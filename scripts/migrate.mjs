@@ -61,10 +61,25 @@ async function main() {
       .filter((f) => f.endsWith(".sql"))
       .sort();
 
+    // Registro de migraciones aplicadas: desde la 0005 hay ALTER TABLE, que no se
+    // pueden correr dos veces. Las 0001-0004 son idempotentes (CREATE ... IF NOT
+    // EXISTS), así que en una base existente la primera vez solo se registran.
+    await connection.query(
+      `CREATE TABLE IF NOT EXISTS web_schema_migrations (
+         name VARCHAR(191) NOT NULL,
+         applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+         PRIMARY KEY (name)
+       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    );
+    const [appliedRows] = await connection.query("SELECT name FROM web_schema_migrations");
+    const applied = new Set(appliedRows.map((row) => row.name));
+
     for (const file of files) {
+      if (applied.has(file)) continue;
       console.log(`Aplicando ${file}...`);
       const sql = readFileSync(path.join(migrationsDir, file), "utf8");
       await connection.query(sql);
+      await connection.query("INSERT INTO web_schema_migrations (name) VALUES (?)", [file]);
     }
 
     const [[{ count }]] = await connection.query(

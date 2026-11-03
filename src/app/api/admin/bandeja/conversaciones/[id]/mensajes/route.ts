@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isDbConfigured } from "@/lib/db";
-import { InboxSendError, sendFromInbox, type SendInput } from "@/lib/wa-inbox/send";
+import { ConversationActionError, addInternalNote } from "@/lib/crm/conversation-actions";
+import { getCurrentUser } from "@/lib/crm/session";
+import { InboxSendError, retryFromInbox, sendFromInbox, type SendInput } from "@/lib/wa-inbox/send";
 import { getInboxStore } from "@/lib/wa-inbox/store";
 
 export const dynamic = "force-dynamic";
@@ -51,10 +53,25 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 }
 
+type PostInput =
+  | SendInput
+  | { type: "note"; body: string }
+  | { type: "retry"; messageId: number };
+
+function parsePostInput(body: unknown): PostInput | null {
+  const data = body as Record<string, unknown> | null;
+  if (data?.type === "note" && typeof data.body === "string") return { type: "note", body: data.body };
+  if (data?.type === "retry" && typeof data.messageId === "number" && Number.isInteger(data.messageId)) {
+    return { type: "retry", messageId: data.messageId };
+  }
+  return parseSendInput(body);
+}
+
 function parseSendInput(body: unknown): SendInput | null {
   const data = body as Record<string, unknown> | null;
   if (data?.type === "text" && typeof data.body === "string") {
-    return { type: "text", body: data.body };
+    const replyMode = data.replyMode === "public" || data.replyMode === "private" ? data.replyMode : undefined;
+    return { type: "text", body: data.body, replyMode };
   }
   const isStringArray = (v: unknown): v is string[] =>
     Array.isArray(v) && v.every((x) => typeof x === "string");
@@ -77,16 +94,29 @@ export async function POST(req: NextRequest, { params }: Params) {
   const id = parseId((await params).id);
   if (!id) return NextResponse.json({ error: "not_found", message: "Conversación inválida." }, { status: 404 });
 
-  const input = parseSendInput(await req.json().catch(() => null));
+  const input = parsePostInput(await req.json().catch(() => null));
   if (!input) {
     return NextResponse.json(
-      { error: "invalid_body", message: "Mandá { type: \"text\", body } o { type: \"template\", name, language, ... }." },
+      {
+        error: "invalid_body",
+        message: "Mandá { type: \"text\", body }, { type: \"template\", ... }, { type: \"note\", body } o { type: \"retry\", messageId }.",
+      },
       { status: 400 }
     );
   }
 
   try {
-    const { saved, error } = await sendFromInbox(id, input);
+    const user = await getCurrentUser();
+
+    if (input.type === "note") {
+      const saved = await addInternalNote(await getInboxStore(), id, input.body, user);
+      return NextResponse.json({ saved }, { status: 201 });
+    }
+
+    const { saved, error } =
+      input.type === "retry"
+        ? await retryFromInbox(id, input.messageId, { authorName: user.name })
+        : await sendFromInbox(id, input, { authorName: user.name });
     if (error) {
       return NextResponse.json(
         { error: "meta_api_error", message: error.title, saved },
@@ -95,6 +125,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
     return NextResponse.json({ saved }, { status: 201 });
   } catch (err) {
+    if (err instanceof ConversationActionError) {
+      return NextResponse.json({ error: "invalid_body", message: err.message }, { status: err.httpStatus });
+    }
     if (err instanceof InboxSendError) {
       return NextResponse.json({ error: err.code, message: err.message }, { status: err.httpStatus });
     }

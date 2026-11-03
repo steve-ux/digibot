@@ -2,9 +2,13 @@
 // (mysql-store.ts); los tests usan una en memoria con la misma interfaz para no
 // tocar la base compartida de la VPS.
 
+import type { ChannelId } from "../crm/channels";
 import type {
+  ConversationStatus,
   InboxConversation,
+  InboxPost,
   InboxMessage,
+  MessageAuthor,
   MessageDirection,
   MessageStatus,
   MessageStatusUpdate,
@@ -14,6 +18,9 @@ export interface NewMessage {
   conversationId: number;
   wamid: string | null;
   direction: MessageDirection;
+  // Por defecto: in -> customer, out -> agent, internal -> system.
+  author?: MessageAuthor;
+  authorName?: string | null;
   type: string;
   body: string | null;
   templateName?: string | null;
@@ -32,22 +39,50 @@ export interface MessagePatch {
   rawPayload?: unknown;
 }
 
+// Cambios de la conversación hechos desde el panel (resolver, tomar, asignar…).
+export interface ConversationPatch {
+  status?: ConversationStatus;
+  botActive?: boolean;
+  assigneeId?: number | null;
+  tags?: string[];
+  note?: string;
+}
+
+export type ActivityAuthor = "customer" | "bot" | "agent";
+
+// Datos extra al crear/actualizar una conversación de Instagram o Messenger.
+export interface ConversationIdentity {
+  channel?: ChannelId;
+  handle?: string | null;
+  post?: InboxPost | null;
+}
+
 export interface StatusError {
   code: number | null;
   title: string | null;
 }
 
 export interface InboxStore {
-  // Crea la conversación si no existe y devuelve su id. Actualiza el nombre si viene uno.
-  upsertConversation(phoneNumberId: string, waId: string, contactName: string | null): Promise<number>;
+  // Crea la conversación si no existe y devuelve su id. Actualiza nombre/handle/post si vienen.
+  // accountId = phone_number_id / page_id / ig_user_id; contactId = wa_id / PSID / IGSID.
+  upsertConversation(
+    accountId: string,
+    contactId: string,
+    contactName: string | null,
+    identity?: ConversationIdentity
+  ): Promise<number>;
   getConversation(id: number): Promise<InboxConversation | null>;
+  // Busca sin crear (para eventos como "leído" que no deben abrir conversaciones nuevas).
+  findConversationId(channel: ChannelId, accountId: string, contactId: string): Promise<number | null>;
   listConversations(limit: number): Promise<InboxConversation[]>;
-  // Actualiza preview/hora del último mensaje; si es entrante, también last_inbound_at y no leídos.
+  // Actualiza preview/hora/autor del último mensaje; si es entrante, también
+  // last_inbound_at y no leídos, y reabre la conversación si estaba resuelta.
   recordActivity(
     conversationId: number,
-    activity: { preview: string; at: number; inbound: boolean }
+    activity: { preview: string; at: number; inbound: boolean; author?: ActivityAuthor }
   ): Promise<void>;
   markConversationRead(id: number): Promise<void>;
+  updateConversation(id: number, patch: ConversationPatch): Promise<void>;
 
   // Devuelve el id insertado, o null si el wamid ya existía (idempotencia del webhook).
   insertMessage(message: NewMessage): Promise<number | null>;
@@ -58,6 +93,8 @@ export interface InboxStore {
   // Mensajes con id > afterId en orden ascendente. Con afterId 0 trae los últimos `limit`.
   listMessages(conversationId: number, afterId: number, limit: number): Promise<InboxMessage[]>;
   recentOutboundStatuses(conversationId: number, limit: number): Promise<MessageStatusUpdate[]>;
+  // Messenger avisa "leído hasta tal hora": marca leídos los salientes anteriores.
+  markOutboundReadUntil(conversationId: number, untilUnix: number): Promise<void>;
 }
 
 let store: InboxStore | null = null;

@@ -199,6 +199,8 @@ async function handleEchoesChange(value: ChangeValue, store: InboxStore) {
       conversationId,
       wamid: echo.id,
       direction: "out",
+      author: "agent",
+      authorName: "App de WhatsApp Business",
       type: echo.type,
       body,
       status: "sent",

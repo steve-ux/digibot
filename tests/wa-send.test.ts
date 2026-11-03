@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InboxSendError, sendFromInbox, toRecipient } from "@/lib/wa-inbox/send";
-import { MemoryInboxStore } from "./helpers/memory-store";
+import { MemoryInboxStore } from "@/lib/wa-inbox/memory-store";
 import { CUSTOMER_RECIPIENT, CUSTOMER_WA_ID, PHONE_NUMBER_ID } from "./helpers/payloads";
 
 const SENT_WAMID = "wamid.HBgNNTQ5MjYxNTU1NTEyMzQVAgARGBI3QjM4QkI3NzM3MjU5NjYyODcA";

@@ -10,7 +10,7 @@ import Logo from "@/components/Logo";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/admin/plantillas";
+  const next = searchParams.get("next") || "/admin/bandeja";
 
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
