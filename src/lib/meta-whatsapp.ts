@@ -1,14 +1,16 @@
 // Cliente server-only para la WhatsApp Business Management API (Graph API de Meta).
-// El access token nunca debe llegar al navegador: solo se usa acá, dentro de las
-// rutas API (src/app/api/templates/*), que corren en el servidor.
+// El access token nunca llega al navegador: solo se usa acá, desde las rutas API.
 //
-// La conexión (WABA ID + access token) se resuelve primero desde la base de datos
-// (tabla web_whatsapp_connections, pensada para multi-tenant a futuro) y si no hay
-// nada configurado ahí, cae a las variables de entorno WHATSAPP_WABA_ID /
-// WHATSAPP_ACCESS_TOKEN (modo actual, de transición).
+// Cada llamada usa la conexión que corresponde (ver whatsapp-connections.ts):
+//   - plantillas: la conexión de la cuenta (su WABA)
+//   - envíos: la conexión dueña del número de la conversación
 
 import { deleteTemplateRecord, upsertTemplateRecord } from "./templates-store";
-import { getDefaultConnection } from "./whatsapp-connections";
+import {
+  getConnectionByPhoneNumberId,
+  getConnectionForAccount,
+  type WhatsAppConnection,
+} from "./whatsapp-connections";
 
 export type TemplateCategory = "MARKETING" | "UTILITY" | "AUTHENTICATION";
 export type TemplateStatus = "APPROVED" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED";
@@ -57,50 +59,24 @@ class MetaApiError extends Error {
   }
 }
 
-interface ResolvedConfig {
-  wabaId: string;
-  phoneNumberId: string | null;
-  accessToken: string;
-  apiVersion: string;
-  connectionId: number | null;
+const NOT_CONNECTED = "Esta cuenta todavía no tiene WhatsApp conectado. Conectalo desde Canales.";
+
+async function connectionForAccount(accountId: number) {
+  const connection = await getConnectionForAccount(accountId);
+  if (!connection) throw new MetaConfigError(NOT_CONNECTED);
+  return connection;
 }
 
-async function getConfig(): Promise<ResolvedConfig> {
-  const envPhoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || null;
-
-  const connection = await getDefaultConnection().catch(() => null);
-  if (connection) {
-    return {
-      wabaId: connection.wabaId,
-      phoneNumberId: connection.phoneNumberId || envPhoneNumberId,
-      accessToken: connection.accessToken,
-      apiVersion: connection.apiVersion,
-      connectionId: connection.id,
-    };
-  }
-
-  const wabaId = process.env.WHATSAPP_WABA_ID;
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const apiVersion = process.env.META_GRAPH_API_VERSION || "v23.0";
-
-  if (!wabaId || !accessToken) {
-    throw new MetaConfigError(
-      "Faltan WHATSAPP_WABA_ID y/o WHATSAPP_ACCESS_TOKEN en las variables de entorno. " +
-        "Configuralos en .env.local con las credenciales de tu WhatsApp Business Account."
-    );
-  }
-
-  return { wabaId, phoneNumberId: envPhoneNumberId, accessToken, apiVersion, connectionId: null };
-}
-
-async function graphFetch(path: string, init?: RequestInit) {
-  const { accessToken, apiVersion } = await getConfig();
-  const url = `https://graph.facebook.com/${apiVersion}${path}`;
-
+export async function graphRequest(
+  connection: Pick<WhatsAppConnection, "accessToken" | "apiVersion">,
+  path: string,
+  init?: RequestInit
+) {
+  const url = `https://graph.facebook.com/${connection.apiVersion}${path}`;
   const res = await fetch(url, {
     ...init,
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${connection.accessToken}`,
       "Content-Type": "application/json",
       ...init?.headers,
     },
@@ -124,57 +100,85 @@ async function graphFetch(path: string, init?: RequestInit) {
   return data;
 }
 
-// La lista de plantillas se sirve desde memoria (stale-while-revalidate): si el
-// cache está vencido se devuelve igual y se refresca contra Meta en segundo plano.
+// La lista de plantillas (por WABA) se sirve desde memoria (stale-while-revalidate):
+// si el cache está vencido se devuelve igual y se refresca contra Meta en segundo plano.
 // `fresh: true` fuerza ir a Meta (lo usa el panel para revalidar después de pintar).
 const TEMPLATES_TTL_MS = 30_000;
-let templatesCache: { at: number; templates: WhatsAppTemplate[] } | null = null;
-let templatesInflight: Promise<WhatsAppTemplate[]> | null = null;
-// Se incrementa al crear/borrar: descarta respuestas de Meta que salieron antes del cambio.
-let templatesGeneration = 0;
-
-export function invalidateTemplatesCache() {
-  templatesCache = null;
-  templatesInflight = null;
-  templatesGeneration++;
+interface TemplatesCache {
+  at: number;
+  templates: WhatsAppTemplate[] | null;
+  inflight: Promise<WhatsAppTemplate[]> | null;
+  // Se incrementa al crear/borrar: descarta respuestas de Meta que salieron antes del cambio.
+  generation: number;
 }
+const templatesCache = new Map<string, TemplatesCache>();
 
-export async function listTemplates({ fresh = false }: { fresh?: boolean } = {}): Promise<WhatsAppTemplate[]> {
-  if (templatesCache && !fresh) {
-    if (Date.now() - templatesCache.at > TEMPLATES_TTL_MS) {
-      refreshTemplates().catch((err) => console.error("No se pudieron refrescar las plantillas:", err));
-    }
-    return templatesCache.templates;
+function cacheFor(wabaId: string) {
+  let entry = templatesCache.get(wabaId);
+  if (!entry) {
+    entry = { at: 0, templates: null, inflight: null, generation: 0 };
+    templatesCache.set(wabaId, entry);
   }
-  return refreshTemplates();
+  return entry;
 }
 
-function refreshTemplates() {
-  if (templatesInflight) return templatesInflight;
-  const generation = templatesGeneration;
-  const promise = fetchTemplatesFromMeta()
+export function invalidateTemplatesCache(wabaId?: string) {
+  const entries = wabaId ? [cacheFor(wabaId)] : [...templatesCache.values()];
+  for (const entry of entries) {
+    entry.templates = null;
+    entry.inflight = null;
+    entry.generation++;
+  }
+}
+
+export async function listTemplates({
+  accountId,
+  fresh = false,
+}: {
+  accountId: number;
+  fresh?: boolean;
+}): Promise<WhatsAppTemplate[]> {
+  const connection = await connectionForAccount(accountId);
+  const entry = cacheFor(connection.wabaId);
+  if (entry.templates && !fresh) {
+    if (Date.now() - entry.at > TEMPLATES_TTL_MS) {
+      refreshTemplates(connection).catch((err) => console.error("No se pudieron refrescar las plantillas:", err));
+    }
+    return entry.templates;
+  }
+  return refreshTemplates(connection);
+}
+
+function refreshTemplates(connection: WhatsAppConnection) {
+  const entry = cacheFor(connection.wabaId);
+  if (entry.inflight) return entry.inflight;
+  const generation = entry.generation;
+  const promise = fetchTemplatesFromMeta(connection)
     .then((templates) => {
-      if (generation === templatesGeneration) templatesCache = { at: Date.now(), templates };
+      if (generation === entry.generation) {
+        entry.templates = templates;
+        entry.at = Date.now();
+      }
       return templates;
     })
     .finally(() => {
-      if (templatesInflight === promise) templatesInflight = null;
+      if (entry.inflight === promise) entry.inflight = null;
     });
-  templatesInflight = promise;
+  entry.inflight = promise;
   return promise;
 }
 
-async function fetchTemplatesFromMeta(): Promise<WhatsAppTemplate[]> {
-  const { wabaId, connectionId } = await getConfig();
-  const data = await graphFetch(
-    `/${wabaId}/message_templates?fields=id,name,language,category,status,components&limit=100`
+async function fetchTemplatesFromMeta(connection: WhatsAppConnection): Promise<WhatsAppTemplate[]> {
+  const data = await graphRequest(
+    connection,
+    `/${connection.wabaId}/message_templates?fields=id,name,language,category,status,components&limit=100`
   );
   const templates: WhatsAppTemplate[] = data.data ?? [];
 
   // La sincronización con la base no bloquea la respuesta: va en paralelo y en segundo plano.
-  if (connectionId !== null) {
+  if (connection.id > 0) {
     for (const template of templates) {
-      upsertTemplateRecord(connectionId, {
+      upsertTemplateRecord(connection.id, {
         metaTemplateId: template.id,
         name: template.name,
         language: template.language,
@@ -188,17 +192,17 @@ async function fetchTemplatesFromMeta(): Promise<WhatsAppTemplate[]> {
   return templates;
 }
 
-export async function createTemplate(input: CreateTemplateInput) {
-  const { wabaId, connectionId } = await getConfig();
-  const result = await graphFetch(`/${wabaId}/message_templates`, {
+export async function createTemplate(accountId: number, input: CreateTemplateInput) {
+  const connection = await connectionForAccount(accountId);
+  const result = await graphRequest(connection, `/${connection.wabaId}/message_templates`, {
     method: "POST",
     body: JSON.stringify(input),
   });
-  invalidateTemplatesCache();
+  invalidateTemplatesCache(connection.wabaId);
 
-  if (connectionId !== null) {
+  if (connection.id > 0) {
     try {
-      await upsertTemplateRecord(connectionId, {
+      await upsertTemplateRecord(connection.id, {
         metaTemplateId: result?.id,
         name: input.name,
         language: input.language,
@@ -214,16 +218,18 @@ export async function createTemplate(input: CreateTemplateInput) {
   return result;
 }
 
-export async function deleteTemplate(name: string) {
-  const { wabaId, connectionId } = await getConfig();
-  const result = await graphFetch(`/${wabaId}/message_templates?name=${encodeURIComponent(name)}`, {
-    method: "DELETE",
-  });
-  invalidateTemplatesCache();
+export async function deleteTemplate(accountId: number, name: string) {
+  const connection = await connectionForAccount(accountId);
+  const result = await graphRequest(
+    connection,
+    `/${connection.wabaId}/message_templates?name=${encodeURIComponent(name)}`,
+    { method: "DELETE" }
+  );
+  invalidateTemplatesCache(connection.wabaId);
 
-  if (connectionId !== null) {
+  if (connection.id > 0) {
     try {
-      await deleteTemplateRecord(connectionId, name);
+      await deleteTemplateRecord(connection.id, name);
     } catch (err) {
       console.error("No se pudo borrar la plantilla de la base de datos:", err);
     }
@@ -251,19 +257,19 @@ export type OutgoingMessage =
   | { type: "text"; text: string }
   | { type: "template"; template: TemplateMessageInput };
 
-// Envía un mensaje desde el número `phoneNumberId` (Cloud API). Si no se pasa,
-// usa el phone_number_id de la conexión o WHATSAPP_PHONE_NUMBER_ID.
+// Envía un mensaje desde el número `phoneNumberId` (Cloud API), con el token de su conexión.
 export async function sendWhatsAppMessage(
   to: string,
   message: OutgoingMessage,
   phoneNumberId?: string | null
 ): Promise<SendMessageResult> {
-  const config = await getConfig();
-  const fromId = phoneNumberId || config.phoneNumberId;
+  const connection = await getConnectionByPhoneNumberId(phoneNumberId);
+  if (!connection) {
+    throw new MetaConfigError("No hay ningún número de WhatsApp conectado. Conectalo desde Canales.");
+  }
+  const fromId = phoneNumberId || connection.phoneNumberId;
   if (!fromId) {
-    throw new MetaConfigError(
-      "Falta WHATSAPP_PHONE_NUMBER_ID en las variables de entorno para poder enviar mensajes."
-    );
+    throw new MetaConfigError("Falta el número de WhatsApp desde el que se envía. Reconectalo desde Canales.");
   }
 
   const payload =
@@ -278,7 +284,7 @@ export async function sendWhatsAppMessage(
           },
         };
 
-  return graphFetch(`/${fromId}/messages`, {
+  return graphRequest(connection, `/${fromId}/messages`, {
     method: "POST",
     body: JSON.stringify({
       messaging_product: "whatsapp",
@@ -289,10 +295,9 @@ export async function sendWhatsAppMessage(
   });
 }
 
-export async function isMetaConfigured() {
-  const connection = await getDefaultConnection().catch(() => null);
-  if (connection) return true;
-  return Boolean(process.env.WHATSAPP_WABA_ID && process.env.WHATSAPP_ACCESS_TOKEN);
+// ¿La cuenta tiene WhatsApp conectado?
+export async function isMetaConfigured(accountId: number) {
+  return (await getConnectionForAccount(accountId)) !== null;
 }
 
 export { MetaApiError, MetaConfigError };

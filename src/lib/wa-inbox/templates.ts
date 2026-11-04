@@ -32,8 +32,8 @@ function toInboxTemplate(template: WhatsAppTemplate): InboxTemplate | null {
   };
 }
 
-export async function listApprovedInboxTemplates(): Promise<InboxTemplate[]> {
-  const templates = await listTemplates();
+export async function listApprovedInboxTemplates(accountId: number): Promise<InboxTemplate[]> {
+  const templates = await listTemplates({ accountId });
   return templates
     .filter((t) => t.status === "APPROVED")
     .map(toInboxTemplate)

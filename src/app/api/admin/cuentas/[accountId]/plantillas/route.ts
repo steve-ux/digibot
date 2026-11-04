@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAccountApi } from "@/lib/crm/api-auth";
 import { accountHasWhatsApp, NO_WHATSAPP_MESSAGE } from "@/lib/crm/account-whatsapp";
-import { createTemplate, isMetaConfigured, listTemplates } from "@/lib/meta-whatsapp";
+import { createTemplate, listTemplates } from "@/lib/meta-whatsapp";
 
 type Params = { params: Promise<{ accountId: string }> };
 
@@ -11,17 +11,16 @@ const notConfigured = (message = "Faltan las credenciales de WhatsApp Business e
 async function guard(rawAccountId: string) {
   const auth = await requireAccountApi(rawAccountId, "templates");
   if (auth.response) return auth.response;
-  if (!(await isMetaConfigured())) return notConfigured();
   if (!(await accountHasWhatsApp(auth.accountId))) return notConfigured(NO_WHATSAPP_MESSAGE);
-  return null;
+  return { accountId: auth.accountId };
 }
 
 export async function GET(req: NextRequest, { params }: Params) {
-  const denied = await guard((await params).accountId);
-  if (denied) return denied;
+  const g = await guard((await params).accountId);
+  if (g instanceof NextResponse) return g;
   try {
     const fresh = req.nextUrl.searchParams.get("fresh") === "1";
-    const templates = await listTemplates({ fresh });
+    const templates = await listTemplates({ accountId: g.accountId, fresh });
     return NextResponse.json({ templates });
   } catch (err) {
     return NextResponse.json({ error: "meta_api_error", message: (err as Error).message }, { status: 502 });
@@ -29,8 +28,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
-  const denied = await guard((await params).accountId);
-  if (denied) return denied;
+  const g = await guard((await params).accountId);
+  if (g instanceof NextResponse) return g;
 
   const body = await req.json().catch(() => null);
   if (!body?.name || !body?.language || !body?.category || !Array.isArray(body?.components)) {
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const result = await createTemplate(body);
+    const result = await createTemplate(g.accountId, body);
     return NextResponse.json({ ok: true, result });
   } catch (err) {
     return NextResponse.json({ error: "meta_api_error", message: (err as Error).message }, { status: 502 });

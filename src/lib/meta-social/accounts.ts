@@ -26,11 +26,49 @@ export interface SocialAccount {
 }
 
 interface AccountRow extends RowDataPacket {
+  id: number;
   channel: SocialChannel;
   account_id: string;
   page_id: string | null;
   display_name: string | null;
   access_token_enc: string | null;
+  expires_ts?: number | string | null;
+}
+
+// Threads: si a algún token le quedan menos de 10 días, se renueva en segundo plano.
+const REFRESH_WINDOW_SECONDS = 10 * 24 * 3600;
+let refreshing = false;
+function maybeRefreshThreads(rows: AccountRow[]) {
+  const soon = Math.floor(Date.now() / 1000) + REFRESH_WINDOW_SECONDS;
+  if (refreshing || !rows.some((r) => r.channel === "th" && r.expires_ts != null && Number(r.expires_ts) < soon)) return;
+  refreshing = true;
+  Promise.all([import("../channels/service"), import("../channels/repo-mysql")])
+    .then(([service, repo]) => service.refreshExpiringThreads(repo.getMySqlChannelsRepo()))
+    .then((n) => {
+      if (n > 0) cache = null;
+    })
+    .catch((err) => console.error("[canales] No se pudieron renovar los tokens de Threads:", (err as Error).message))
+    .finally(() => {
+      refreshing = false;
+    });
+}
+
+async function queryAccounts(): Promise<AccountRow[]> {
+  try {
+    const [rows] = await getPool().query<AccountRow[]>(
+      `SELECT id, channel, account_id, page_id, display_name, access_token_enc, UNIX_TIMESTAMP(token_expires_at) AS expires_ts
+       FROM web_channel_accounts WHERE status = 'connected'`
+    );
+    return rows;
+  } catch (err) {
+    // Sin la migración 0010 (token_expires_at) se leen las columnas básicas.
+    if ((err as { code?: string }).code !== "ER_BAD_FIELD_ERROR") throw err;
+    const [rows] = await getPool().query<AccountRow[]>(
+      `SELECT id, channel, account_id, page_id, display_name, access_token_enc
+       FROM web_channel_accounts WHERE status = 'connected'`
+    );
+    return rows;
+  }
 }
 
 const TTL_MS = 60_000;
@@ -39,7 +77,8 @@ let cache: { at: number; promise: Promise<SocialAccount[]> } | null = null;
 const apiVersion = (channel: SocialChannel = "fb") =>
   channel === "th" ? process.env.THREADS_API_VERSION || "v1.0" : process.env.META_GRAPH_API_VERSION || "v23.0";
 
-function envAccounts(): SocialAccount[] {
+// Cuentas configuradas con variables (antes de conectar desde Canales).
+export function listEnvSocialAccounts(): SocialAccount[] {
   const pageId = process.env.META_PAGE_ID;
   const token = process.env.META_PAGE_ACCESS_TOKEN || null;
   const accounts: SocialAccount[] = [];
@@ -86,10 +125,8 @@ function envAccounts(): SocialAccount[] {
 async function loadAccounts(): Promise<SocialAccount[]> {
   const fromDb: SocialAccount[] = [];
   if (isDbConfigured()) {
-    const [rows] = await getPool().query<AccountRow[]>(
-      `SELECT channel, account_id, page_id, display_name, access_token_enc
-       FROM web_channel_accounts WHERE status = 'connected'`
-    );
+    const rows = await queryAccounts();
+    maybeRefreshThreads(rows);
     for (const row of rows) {
       fromDb.push({
         channel: row.channel,
@@ -103,7 +140,7 @@ async function loadAccounts(): Promise<SocialAccount[]> {
     }
   }
   // La base tiene prioridad; las variables completan lo que falte.
-  const env = envAccounts().filter((e) => !fromDb.some((d) => d.channel === e.channel && d.accountId === e.accountId));
+  const env = listEnvSocialAccounts().filter((e) => !fromDb.some((d) => d.channel === e.channel && d.accountId === e.accountId));
   return [...fromDb, ...env];
 }
 

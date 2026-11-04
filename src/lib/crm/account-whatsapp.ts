@@ -1,13 +1,10 @@
 // ¿Esta cuenta tiene WhatsApp conectado? Server-only.
-// Hoy hay una sola conexión (la de DigiBot) en web_whatsapp_connections; con el
-// Embedded Signup (etapa de Canales) cada cuenta va a tener la suya. Mientras
-// tanto, las plantillas solo se ven en la cuenta dueña de esa conexión.
+// Cada cuenta conecta el suyo desde Canales (Embedded Signup).
 
-import { getDefaultConnection } from "../whatsapp-connections";
+import { getConnectionForAccount } from "../whatsapp-connections";
 
 export async function accountHasWhatsApp(accountId: number) {
-  const connection = await getDefaultConnection().catch(() => null);
-  return Boolean(connection && connection.clientId === accountId);
+  return (await getConnectionForAccount(accountId).catch(() => null)) !== null;
 }
 
 export const NO_WHATSAPP_MESSAGE = "Esta cuenta todavía no tiene WhatsApp conectado. Conectalo desde Canales.";

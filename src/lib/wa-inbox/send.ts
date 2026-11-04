@@ -186,7 +186,7 @@ export async function sendFromInbox(
     if (conversation.channel !== "wa") {
       throw new InboxSendError("invalid_body", "Las plantillas solo existen en WhatsApp.", 400);
     }
-    const template = await buildTemplate(input, deps.findTemplates ?? listApprovedInboxTemplates);
+    const template = await buildTemplate(input, deps.findTemplates ?? (() => listApprovedInboxTemplates(conversation.accountId)));
     body = template.preview;
     templateName = template.payload.name;
     outgoing = { type: "template", template: template.payload };
