@@ -10,6 +10,7 @@ import { CHANNEL_IDS, type ChannelId } from "@/lib/crm/channels";
 import type { ConversationAction } from "@/lib/crm/conversation-actions";
 import type { Label } from "@/lib/crm/labels";
 import { accountPath } from "@/lib/crm/permissions";
+import { newInboundChannels } from "@/lib/crm/sound-prefs";
 import type { InboxConversation, InboxMessage } from "@/lib/wa-inbox/types";
 import { getRealApi, type InboxApi } from "./api";
 import ChatPanel from "./ChatPanel";
@@ -82,7 +83,11 @@ function Bandeja({
   attributes: realAttributes,
   demo,
 }: Props & { demo: boolean }) {
-  const { reportInboxUnread, setImmersive, setDemo } = useCrmShell();
+  const { reportInboxUnread, setImmersive, setDemo, playIncoming, sounds } = useCrmShell();
+  // Lo último que trajo el polling, para detectar mensajes nuevos de clientes (sonido).
+  const lastPolled = useRef<InboxConversation[] | null>(null);
+  const soundsOn = useRef(sounds.enabled);
+  soundsOn.current = sounds.enabled;
   const toast = useToast();
   const api: InboxApi = useMemo(() => (demo ? getDemoApi(me, accountId) : getRealApi(accountId)), [demo, me, accountId]);
   const team = useMemo(() => (demo ? demoTeam(me) : realTeam), [demo, me, realTeam]);
@@ -135,6 +140,11 @@ function Bandeja({
       if (state.kind === "not_configured") return;
       try {
         const fresh = await api.listConversations();
+        if (lastPolled.current) {
+          const channels = newInboundChannels(lastPolled.current, fresh);
+          if (channels.length) playIncoming(channels);
+        }
+        lastPolled.current = fresh;
         setState((prev) => ({
           kind: "ready",
           conversations: mergeFresh(fresh, prev.kind === "ready" ? prev.conversations : []),
@@ -146,7 +156,8 @@ function Bandeja({
       }
     },
     POLL_INTERVAL_MS,
-    `${refreshKey}`
+    `${refreshKey}`,
+    { whileHidden: () => soundsOn.current, hiddenIntervalMs: 10000 }
   );
 
   const updateConversation = useCallback((id: number, fn: (c: InboxConversation) => InboxConversation) => {

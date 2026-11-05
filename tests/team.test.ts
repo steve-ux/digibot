@@ -319,7 +319,8 @@ describe("permisos", () => {
 
   it("desarma las rutas por cuenta", () => {
     expect(parseAccountRoute("/admin/cuentas/7/conversaciones/11")).toEqual({ accountId: 7, segment: "conversaciones", section: "inbox" });
-    expect(parseAccountRoute("/admin/cuentas/7/configuracion")).toMatchObject({ section: "settings" });
+    // Configuración la abre cualquiera (perfil, sonidos); etiquetas y atributos se controlan adentro.
+    expect(parseAccountRoute("/admin/cuentas/7/configuracion")).toMatchObject({ section: "inbox" });
     expect(parseAccountRoute("/api/admin/cuentas/7/equipo/3")).toMatchObject({ accountId: 7, section: "team" });
     expect(parseAccountRoute("/api/admin/cuentas/7/plantillas-aprobadas")).toMatchObject({ section: "inbox" });
     expect(parseAccountRoute("/api/admin/cuentas/7")).toMatchObject({ accountId: 7, section: "accounts" });

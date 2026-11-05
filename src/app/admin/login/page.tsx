@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
@@ -14,7 +14,6 @@ function safeNext(value: string | null) {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
   const expired = searchParams.get("expirada") === "1";
@@ -51,8 +50,10 @@ function LoginForm() {
         setLoading(false);
         return;
       }
-      router.push(next ?? (typeof data.home === "string" ? data.home : "/admin"));
-      router.refresh();
+      // Navegación completa (no router.push + refresh): el router del cliente puede tener
+      // cacheada la redirección al login de antes de tener la cookie, y el refresh
+      // cancelaba el push. Así se quedaba en "Ingresando..." y había que entrar dos veces.
+      window.location.assign(next ?? (typeof data.home === "string" ? data.home : "/admin"));
     } catch {
       setError("No se pudo conectar con el servidor.");
       setLoading(false);

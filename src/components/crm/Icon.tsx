@@ -3,6 +3,7 @@
 
 export type IconName =
   | "alert"
+  | "bell"
   | "bot"
   | "building"
   | "chart"
@@ -15,11 +16,13 @@ export type IconName =
   | "trash"
   | "heart"
   | "inbox"
+  | "info"
   | "lock"
   | "logout"
   | "mail"
   | "moon"
   | "panel"
+  | "play"
   | "plug"
   | "plus"
   | "retry"
@@ -27,6 +30,7 @@ export type IconName =
   | "send"
   | "sun"
   | "template"
+  | "user"
   | "users"
   | "x";
 

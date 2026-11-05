@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import CrmShell from "@/components/crm/CrmShell";
 import { accountsForSwitcher } from "@/lib/crm/account-page";
 import { DEMO_COOKIE } from "@/lib/crm/demo-cookie";
+import { avatarUrl, getProfile } from "@/lib/crm/profile";
 import { getCurrentUser, ROLE_LABELS } from "@/lib/crm/session";
 
 // viewport-fit=cover habilita env(safe-area-inset-*) para la barra inferior y el composer;
@@ -25,13 +26,14 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
   const demo = cookieStore.get(DEMO_COOKIE)?.value === "1";
   // Cookie válida pero la persona fue desactivada, cambió de rol o la cuenta se suspendió.
   if (!user) redirect("/admin/login?expirada=1");
-  const accounts = await accountsForSwitcher(user);
+  const [accounts, profile] = await Promise.all([accountsForSwitcher(user), getProfile(user.id)]);
 
   return (
     <CrmShell
       user={{
         id: user.id,
         name: user.name,
+        email: user.email,
         role: user.role,
         roleLabel: ROLE_LABELS[user.role],
         accountId: user.accountId,
@@ -39,6 +41,8 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
       }}
       accounts={accounts}
       initialDemo={demo}
+      initialAvatarUrl={avatarUrl(user.id, profile.avatarVersion)}
+      initialSounds={profile.sounds}
     >
       {children}
     </CrmShell>

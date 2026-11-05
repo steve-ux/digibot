@@ -28,7 +28,7 @@ export default function PanelCrm() {
             <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
             <span className="h-2.5 w-2.5 rounded-full bg-secondary" />
             <span className="ml-3 text-xs font-semibold text-muted-foreground">
-              panel.digibotlatam.com
+              digibotlatam.com/admin
             </span>
           </div>
 

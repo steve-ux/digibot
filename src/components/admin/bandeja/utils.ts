@@ -238,15 +238,31 @@ export function applyStatuses(current: UiMessage[], statuses: MessageStatusUpdat
 
 // Ejecuta `callback` ya y después cada `intervalMs`, sin solapar requests y
 // salteando ticks mientras la pestaña está oculta.
-export function usePolling(callback: () => Promise<void>, intervalMs: number, key: unknown) {
+// Con la pestaña oculta no se consulta, salvo que whileHidden() diga que sí (sonidos
+// de mensajes nuevos): en ese caso, cada hiddenIntervalMs para no cargar el servidor.
+export function usePolling(
+  callback: () => Promise<void>,
+  intervalMs: number,
+  key: unknown,
+  options?: { whileHidden?: () => boolean; hiddenIntervalMs?: number }
+) {
   const saved = useRef(callback);
   saved.current = callback;
+  const savedOptions = useRef(options);
+  savedOptions.current = options;
 
   useEffect(() => {
     let running = false;
+    let lastRun = 0;
     const tick = async () => {
-      if (running || document.hidden) return;
+      if (running) return;
+      if (document.hidden) {
+        const opts = savedOptions.current;
+        if (!opts?.whileHidden?.()) return;
+        if (Date.now() - lastRun < (opts.hiddenIntervalMs ?? 15000)) return;
+      }
       running = true;
+      lastRun = Date.now();
       try {
         await saved.current();
       } finally {

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getDemoInboxStore } from "@/components/admin/bandeja/demo-api";
 import { useCrmShell } from "@/components/crm/CrmShell";
 import { getDemoSettings } from "@/components/crm/demo-settings";
-import Icon from "@/components/crm/Icon";
+import Icon, { type IconName } from "@/components/crm/Icon";
+import { ProfilePanel, SoundsPanel, SupportPanel } from "./PersonalPanels";
 import { Modal } from "@/components/crm/Modal";
 import PageHeader, { PageBody } from "@/components/crm/PageHeader";
 import { useToast } from "@/components/crm/Toast";
@@ -23,7 +24,7 @@ export type SettingsLoadState =
   | { kind: "ready"; labels: Label[]; attributes: CustomAttribute[] }
   | { kind: "error"; message: string };
 
-type Tab = "etiquetas" | "atributos";
+export type Tab = "perfil" | "sonidos" | "etiquetas" | "atributos" | "soporte";
 type FieldErrors = Record<string, string | undefined>;
 
 // Operaciones de Configuración: contra la API, o en memoria en el modo demo.
@@ -79,6 +80,8 @@ export default function ConfiguracionView(props: {
   account: { id: number; name: string };
   initialState: SettingsLoadState;
   initialTab: Tab;
+  // Etiquetas y atributos: solo quien administra la cuenta
+  canManage: boolean;
 }) {
   const { demo } = useCrmShell();
   return <Configuracion key={demo ? "demo" : "real"} {...props} demo={demo} />;
@@ -88,11 +91,13 @@ function Configuracion({
   account,
   initialState,
   initialTab,
+  canManage,
   demo,
 }: {
   account: { id: number; name: string };
   initialState: SettingsLoadState;
   initialTab: Tab;
+  canManage: boolean;
   demo: boolean;
 }) {
   const { user } = useCrmShell();
@@ -106,16 +111,28 @@ function Configuracion({
   const [attributes, setAttributes] = useState<CustomAttribute[]>(
     initialState.kind === "ready" && !demo ? initialState.attributes : []
   );
-  const [loading, setLoading] = useState(demo);
+  const [loading, setLoading] = useState(demo && canManage);
 
   useEffect(() => {
-    if (!demo) return;
+    if (!demo || !canManage) return;
     getDemoSettings(account.id).then(async (repo) => {
       setLabels(await repo.listLabels(account.id));
       setAttributes(await repo.listAttributes(account.id));
       setLoading(false);
     });
-  }, [demo, account.id]);
+  }, [demo, canManage, account.id]);
+
+  const tabs: { id: Tab; label: string; icon: IconName; count?: number }[] = [
+    { id: "perfil", label: "Mi perfil", icon: "user" },
+    { id: "sonidos", label: "Sonidos", icon: "bell" },
+    ...(canManage
+      ? [
+          { id: "etiquetas" as const, label: "Etiquetas", icon: "tag" as const, count: labels.length },
+          { id: "atributos" as const, label: "Atributos", icon: "panel" as const, count: attributes.length },
+        ]
+      : []),
+    { id: "soporte", label: "Soporte", icon: "info" },
+  ];
 
   const changeTab = (next: Tab) => {
     setTab(next);
@@ -134,12 +151,17 @@ function Configuracion({
   };
 
   const error = !demo && initialState.kind === "error" ? initialState.message : null;
+  const adminTab = tab === "etiquetas" || tab === "atributos";
 
   return (
     <PageBody maxWidth={980}>
       <PageHeader
         title="Configuración"
-        description="Las etiquetas y los datos propios que tu equipo usa en cada conversación."
+        description={
+          canManage
+            ? "Tu perfil y tus sonidos, y las etiquetas y datos propios que tu equipo usa en cada conversación."
+            : "Tu foto de perfil, los sonidos de mensajes nuevos y los datos para soporte."
+        }
       />
 
       <div className="flex flex-wrap items-center gap-3 rounded-card border border-crm-border bg-crm-card px-5 py-4">
@@ -159,13 +181,14 @@ function Configuracion({
         </button>
       </div>
 
-      <div role="tablist" aria-label="Secciones de configuración" className="flex gap-1.5 border-b border-crm-border">
-        {(
-          [
-            ["etiquetas", "Etiquetas", "tag"],
-            ["atributos", "Atributos", "panel"],
-          ] as const
-        ).map(([id, label, icon]) => (
+      <div
+        role="tablist"
+        aria-label="Secciones de configuración"
+        // La línea de abajo va como sombra interna (no border + -mb-px en cada pestaña):
+        // así el scroll horizontal del celular no genera 1px de scroll vertical.
+        className="flex gap-1.5 overflow-x-auto overflow-y-hidden shadow-[inset_0_-1px_0_var(--crm-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {tabs.map(({ id, label, icon, count }) => (
           <button
             key={id}
             role="tab"
@@ -173,24 +196,40 @@ function Configuracion({
             aria-selected={tab === id}
             aria-controls={`panel-${id}`}
             onClick={() => changeTab(id)}
-            className={`-mb-px flex min-h-[46px] items-center gap-2 border-b-2 px-4 text-[15px] font-semibold transition-colors ${
+            className={`flex min-h-[46px] shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 text-[15px] font-semibold transition-colors ${
               tab === id ? "border-crm-primary text-crm-primary" : "border-transparent text-crm-muted hover:text-crm-ink"
             }`}
           >
             <Icon name={icon} size={18} />
             {label}
-            <span className="rounded-pill bg-crm-surf px-2 py-px text-xs text-crm-muted">
-              {id === "etiquetas" ? labels.length : attributes.length}
-            </span>
+            {count !== undefined && (
+              <span className="rounded-pill bg-crm-surf px-2 py-px text-xs text-crm-muted">{count}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {error && (
+      {tab === "perfil" && (
+        <div role="tabpanel" id="panel-perfil" aria-labelledby="tab-perfil">
+          <ProfilePanel />
+        </div>
+      )}
+      {tab === "sonidos" && (
+        <div role="tabpanel" id="panel-sonidos" aria-labelledby="tab-sonidos">
+          <SoundsPanel />
+        </div>
+      )}
+      {tab === "soporte" && (
+        <div role="tabpanel" id="panel-soporte" aria-labelledby="tab-soporte">
+          <SupportPanel account={account} />
+        </div>
+      )}
+
+      {adminTab && error && (
         <div className="rounded-card border border-crm-error-border bg-crm-error-bg px-5 py-4 text-sm text-crm-error-ink">{error}</div>
       )}
 
-      {loading ? (
+      {!adminTab ? null : loading ? (
         <div aria-hidden className="flex flex-col gap-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-16 animate-pulse rounded-card bg-crm-surf" />

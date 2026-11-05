@@ -68,7 +68,8 @@ export const ACCOUNT_PAGE_SECTIONS: Record<string, Section> = {
   equipo: "team",
   canales: "channels",
   plantillas: "templates",
-  configuracion: "settings",
+  // Todos entran (perfil, sonidos, soporte); las pestañas de etiquetas y atributos piden "settings".
+  configuracion: "inbox",
 };
 
 // Las etiquetas y atributos se leen desde la bandeja (inbox); para modificarlos,

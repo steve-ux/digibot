@@ -35,17 +35,9 @@ export default function Footer() {
           <Link href="/#faq" className="text-[15px] text-muted-foreground hover:text-primary">
             FAQ
           </Link>
-          <a
-            href="https://panel.digibotlatam.com/"
-            target="_blank"
-            rel="noreferrer noopener"
-            className="text-[15px] text-muted-foreground hover:text-primary"
-          >
-            Panel del cliente
+          <a href="/admin" className="text-[15px] text-muted-foreground hover:text-primary">
+            Panel
           </a>
-          <Link href="/admin/plantillas" className="text-[15px] text-muted-foreground hover:text-primary">
-            Panel interno
-          </Link>
         </div>
 
         <div className="flex flex-col gap-3">

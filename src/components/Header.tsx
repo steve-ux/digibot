@@ -31,10 +31,9 @@ export default function Header() {
               {link.label}
             </Link>
           ))}
+          {/* /admin manda al login si no hay sesión, o directo al inicio de cada persona */}
           <a
-            href="https://panel.digibotlatam.com/"
-            target="_blank"
-            rel="noreferrer noopener"
+            href="/admin"
             className="text-[15px] font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             Panel

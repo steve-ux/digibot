@@ -33,10 +33,10 @@ export const CHANNELS: Record<ChannelId, ChannelInfo> = {
     id: "fbc",
     name: "Comentarios FB",
     longName: "Comentarios de Facebook",
-    icon: "/crm/channels/fbc.svg",
+    icon: "/crm/channels/Facebook_f_logo.svg.webp",
     color: "var(--crm-ch-fbc)",
   },
-  th: { id: "th", name: "Threads", longName: "Threads", icon: "/crm/channels/th.svg", color: "var(--crm-ch-th)" },
+  th: { id: "th", name: "Threads", longName: "Threads", icon: "/crm/channels/Threads_logo.png", color: "var(--crm-ch-th)" },
 };
 
 // Canales donde se responde a una publicación (no son chats privados).

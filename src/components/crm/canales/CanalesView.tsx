@@ -54,7 +54,27 @@ const PROVIDERS: { id: ProviderId; name: string; icon: string; description: stri
   },
 ];
 
-const COMING_SOON = ["YouTube", "Telegram", "TikTok"];
+// Canales que todavía no se pueden conectar: se muestran con el botón deshabilitado.
+const COMING_SOON: { id: string; name: string; icon: string; description: string }[] = [
+  {
+    id: "youtube",
+    name: "YouTube",
+    icon: "/crm/channels/YouTube-logo.png",
+    description: "Los comentarios de tus videos, para responderlos desde la bandeja.",
+  },
+  {
+    id: "telegram",
+    name: "Telegram",
+    icon: "/crm/channels/Telegram_logo.svg.webp",
+    description: "Los chats de tu bot de Telegram, en la misma bandeja que el resto.",
+  },
+  {
+    id: "tiktok",
+    name: "TikTok",
+    icon: "/crm/channels/log_tiktok.avif",
+    description: "Mensajes y comentarios de tu cuenta de TikTok, para no perderte ninguna consulta.",
+  },
+];
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
@@ -226,24 +246,11 @@ function Canales({ accountId, initialState, demo }: { accountId: number; initial
               onRemove={setToRemove}
             />
           ))}
-        </div>
-      )}
-
-      <section aria-labelledby="soon-title" className="flex flex-col gap-3">
-        <h2 id="soon-title" className="m-0 text-xs font-bold tracking-[.8px] text-crm-muted">
-          PRÓXIMAMENTE
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {COMING_SOON.map((name) => (
-            <span
-              key={name}
-              className="rounded-pill border border-dashed border-crm-border-2 bg-crm-card px-4 py-2 text-sm font-semibold text-crm-muted"
-            >
-              {name}
-            </span>
+          {COMING_SOON.map((c) => (
+            <SoonCard key={c.id} channel={c} />
           ))}
         </div>
-      </section>
+      )}
 
       <PagePicker
         state={picker}
@@ -311,7 +318,7 @@ function ProviderCard({
       className="flex flex-col gap-3.5 rounded-card border border-crm-border bg-crm-card p-[22px]"
     >
       <div className="flex items-center gap-3">
-        <img src={provider.icon} alt="" width={40} height={40} className="block shrink-0" />
+        <img src={provider.icon} alt="" width={40} height={40} className="block h-10 w-10 shrink-0 object-contain" />
         <div className="min-w-0 flex-1">
           <h2 id={`prov-${provider.id}`} className="m-0 font-poppins text-base font-semibold text-crm-ink">
             {provider.name}
@@ -406,6 +413,41 @@ function ProviderCard({
           </p>
         </div>
       )}
+    </article>
+  );
+}
+
+// Canal que todavía no se puede conectar: misma card, con el botón grisado.
+function SoonCard({ channel }: { channel: (typeof COMING_SOON)[number] }) {
+  return (
+    <article
+      aria-labelledby={`prov-${channel.id}`}
+      className="flex flex-col gap-3.5 rounded-card border border-crm-border bg-crm-card p-[22px]"
+    >
+      <div className="flex items-center gap-3">
+        <img src={channel.icon} alt="" width={40} height={40} className="block h-10 w-10 shrink-0 object-contain" />
+        <div className="min-w-0 flex-1">
+          <h2 id={`prov-${channel.id}`} className="m-0 font-poppins text-base font-semibold text-crm-ink">
+            {channel.name}
+          </h2>
+          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-crm-muted">
+            <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-crm-subtle" />
+            Próximamente
+          </div>
+        </div>
+      </div>
+
+      <p className="m-0 flex-1 text-sm leading-[1.45] text-crm-ink-2">{channel.description}</p>
+
+      <div className="flex flex-col gap-1.5">
+        <button disabled className="h-11 cursor-not-allowed rounded-pill bg-crm-surf font-poppins text-sm font-semibold text-crm-muted">
+          Conectar {channel.name}
+        </button>
+        <p className="m-0 flex items-start gap-1.5 text-xs leading-[1.4] text-crm-muted">
+          <Icon name="clock" size={14} className="mt-px shrink-0" />
+          Estamos trabajando en esta integración. Te avisamos cuando esté lista.
+        </p>
+      </div>
     </article>
   );
 }

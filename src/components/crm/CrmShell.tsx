@@ -2,17 +2,21 @@
 
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Logo from "@/components/Logo";
-import { avatarColor, initialsOf } from "@/lib/crm/channels";
+import type { ChannelId } from "@/lib/crm/channels";
 import Icon, { type IconName } from "./Icon";
 import { ToastProvider } from "./Toast";
+import UserAvatar from "./UserAvatar";
+import { playSound, unlockAudio } from "./sound-player";
 import { accountApi, accountPath, canAccess, type CrmRole, type Section } from "@/lib/crm/permissions";
 import { DEMO_COOKIE } from "@/lib/crm/demo-cookie";
+import { soundFor, type SoundPrefs } from "@/lib/crm/sound-prefs";
 
 export interface CrmUser {
   id: number;
   name: string;
+  email: string | null;
   role: CrmRole;
   roleLabel: string;
   // Cuenta de la persona (null = superadmin)
@@ -37,6 +41,13 @@ interface ShellContextValue {
   reportInboxUnread: (count: number) => void;
   // En mobile, el chat abierto ocupa toda la pantalla: se ocultan las barras.
   setImmersive: (on: boolean) => void;
+  // Perfil personal (Configuración → Mi perfil / Sonidos)
+  avatarUrl: string | null;
+  setAvatarUrl: (url: string | null) => void;
+  sounds: SoundPrefs;
+  setSounds: (prefs: SoundPrefs) => void;
+  // Aviso de mensaje nuevo: suena el primer canal de la lista que tenga sonido.
+  playIncoming: (channels: ChannelId[]) => void;
 }
 
 const ShellContext = createContext<ShellContextValue | null>(null);
@@ -86,6 +97,35 @@ const ACCOUNTS_ITEM: NavItem = {
 };
 
 const SUMMARY_POLL_MS = 20000;
+const VERSION_CHECK_MS = 10 * 60 * 1000;
+
+// ¿El servidor ya tiene otro build que el de esta pestaña? (deploy con la pestaña abierta)
+function useNewVersionAvailable() {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    const mine = process.env.BUILD_TIME;
+    if (!mine) return;
+    let cancelled = false;
+    const check = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch("/api/version", { cache: "no-store" });
+        const data = await res.json();
+        if (!cancelled && data.buildTime && data.buildTime !== mine) setAvailable(true);
+      } catch {
+        // Sin conexión: se vuelve a probar en el próximo intervalo.
+      }
+    };
+    const timer = setInterval(check, VERSION_CHECK_MS);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, []);
+  return available;
+}
 
 function useThemeToggle() {
   const [dark, setDark] = useState(false);
@@ -148,9 +188,13 @@ export default function CrmShell({
   user,
   accounts,
   initialDemo,
+  initialAvatarUrl,
+  initialSounds,
   children,
 }: {
   user: CrmUser;
+  initialAvatarUrl: string | null;
+  initialSounds: SoundPrefs;
   // Cuentas que puede ver (superadmin: todas; el resto: la suya)
   accounts: ShellAccount[];
   initialDemo: boolean;
@@ -163,6 +207,33 @@ export default function CrmShell({
   const [demo, setDemoState] = useState(initialDemo);
   const [unread, setUnread] = useState(0);
   const [immersive, setImmersive] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
+  const [sounds, setSounds] = useState(initialSounds);
+  const soundsRef = useRef(sounds);
+  soundsRef.current = sounds;
+  const newVersion = useNewVersionAvailable();
+
+  const playIncoming = useCallback((channels: ChannelId[]) => {
+    const prefs = soundsRef.current;
+    for (const channel of channels) {
+      const sound = soundFor(prefs, channel);
+      if (sound) {
+        playSound(sound, prefs.volume);
+        return;
+      }
+    }
+  }, []);
+
+  // Los navegadores no dejan sonar hasta que la persona interactúa con la página.
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   const accountId = Number(params?.accountId) || null;
   const account = useMemo<ShellAccount | null>(
@@ -195,17 +266,28 @@ export default function CrmShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fuera de la bandeja, el badge se mantiene con un resumen liviano.
+  // Fuera de la bandeja, el badge (y el sonido de mensaje nuevo) se mantiene con un resumen liviano.
+  // Con sonidos prendidos sigue consultando en segundo plano, que es cuando más sirve el aviso.
   useEffect(() => {
     if (onInbox || demo || accountId === null) return;
     let cancelled = false;
+    let lastInbound: Record<string, number> | null = null;
     const load = async () => {
-      if (document.hidden) return;
+      if (document.hidden && !soundsRef.current.enabled) return;
       try {
         const res = await fetch(accountApi(accountId, "resumen"), { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled) setUnread(Number(data.unread) || 0);
+        if (cancelled) return;
+        setUnread(Number(data.unread) || 0);
+        const fresh: Record<string, number> =
+          data.lastInbound && typeof data.lastInbound === "object" ? data.lastInbound : {};
+        const prev = lastInbound;
+        if (prev) {
+          const changed = Object.keys(fresh).filter((ch) => Number(fresh[ch]) > (prev[ch] ?? 0));
+          if (changed.length) playIncoming(changed as ChannelId[]);
+        }
+        lastInbound = fresh;
       } catch {
         // Sin conexión: se mantiene el último valor.
       }
@@ -216,28 +298,42 @@ export default function CrmShell({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [onInbox, demo, accountId]);
+  }, [onInbox, demo, accountId, playIncoming]);
 
   useEffect(() => {
     if (!onInbox) setImmersive(false);
   }, [onInbox]);
 
   const logout = async () => {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/admin/login");
-    router.refresh();
+    await fetch("/api/admin/logout", { method: "POST" }).catch(() => {});
+    // Navegación completa: descarta el caché del router con las páginas de la sesión.
+    window.location.assign("/admin/login");
   };
 
   const ctx = useMemo<ShellContextValue>(
-    () => ({ user, account, demo, setDemo, reportInboxUnread: setUnread, setImmersive }),
-    [user, account, demo, setDemo]
+    () => ({
+      user,
+      account,
+      demo,
+      setDemo,
+      reportInboxUnread: setUnread,
+      setImmersive,
+      avatarUrl,
+      setAvatarUrl,
+      sounds,
+      setSounds,
+      playIncoming,
+    }),
+    [user, account, demo, setDemo, avatarUrl, sounds, playIncoming]
   );
 
   // El menú muestra solo lo que el rol puede usar (el control real está en el middleware y las APIs).
   const nav = accountId ? accountNav(accountId) : { main: [], admin: [] };
   const navMain = nav.main.filter((item) => canAccess(user.role, item.section));
   const navAdmin = nav.admin.filter((item) => canAccess(user.role, item.section));
-  const settingsHref = accountId && canAccess(user.role, "settings") ? accountPath(accountId, "configuracion") : null;
+  // Configuración la ve todo el mundo (perfil, sonidos, soporte); etiquetas y atributos, solo quien administra.
+  const settingsHref = accountId ? accountPath(accountId, "configuracion") : null;
+  const profileHref = settingsHref ? `${settingsHref}?tab=perfil` : null;
   const templatesHref = navAdmin.find((i) => i.key === "templates")?.href ?? null;
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const badgeFor = (key: string) => (key === "inbox" ? unread : 0);
@@ -324,6 +420,17 @@ export default function CrmShell({
               </button>
             )}
 
+            {newVersion && (
+              <button
+                onClick={() => window.location.reload()}
+                title="Hay una versión nueva del panel. Tocá para recargar."
+                className="mb-1 flex min-h-[44px] items-center justify-center gap-2 rounded-field border border-crm-tint-border bg-crm-tint px-3 text-xs font-bold text-crm-primary lg:justify-start"
+              >
+                <Icon name="retry" size={16} />
+                <span className="hidden lg:inline">Versión nueva · Recargar</span>
+              </button>
+            )}
+
             {settingsHref && (
               <SideLink
                 item={{ href: settingsHref, label: "Configuración", icon: "settings" }}
@@ -343,13 +450,13 @@ export default function CrmShell({
             </button>
 
             <div className="mt-2 flex flex-col items-center gap-2 border-t border-crm-border px-0 pt-3.5 lg:flex-row lg:gap-2.5 lg:px-2">
-              <div
-                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full font-poppins text-sm font-bold text-white"
-                style={{ background: avatarColor(0) }}
-                title={user.name}
-              >
-                {initialsOf(user.name)}
-              </div>
+              {profileHref ? (
+                <Link href={profileHref} aria-label="Mi perfil" title="Mi perfil" className="rounded-full">
+                  <UserAvatar name={user.name} url={avatarUrl} />
+                </Link>
+              ) : (
+                <UserAvatar name={user.name} url={avatarUrl} />
+              )}
               <div className="hidden min-w-0 flex-1 lg:block">
                 <div className="truncate text-sm font-semibold text-crm-ink">{user.name}</div>
                 <div className="text-xs text-crm-muted">{user.roleLabel}</div>
@@ -380,6 +487,15 @@ export default function CrmShell({
                     )}
                   </span>
                 </Link>
+                {newVersion && (
+                  <button
+                    onClick={() => window.location.reload()}
+                    aria-label="Hay una versión nueva del panel. Recargar"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-crm-primary"
+                  >
+                    <Icon name="retry" />
+                  </button>
+                )}
                 {demo && (
                   <button
                     onClick={() => setDemo(false)}

@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   // componentes cliente). En la VPS la setea scripts/deploy.sh en el .env.
   env: {
     APP_VERSION: process.env.APP_VERSION ?? "",
+    // Fecha del build: el panel la compara con la del servidor (/api/version) para
+    // saber si la pestaña quedó con una versión vieja, aunque no se haya cambiado el número.
+    BUILD_TIME: new Date().toISOString(),
   },
   images: {
     unoptimized: true,
