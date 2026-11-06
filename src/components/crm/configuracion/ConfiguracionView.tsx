@@ -6,6 +6,7 @@ import { useCrmShell } from "@/components/crm/CrmShell";
 import { getDemoSettings } from "@/components/crm/demo-settings";
 import Icon, { type IconName } from "@/components/crm/Icon";
 import { ProfilePanel, SoundsPanel, SupportPanel } from "./PersonalPanels";
+import { demoSubscription, SubscriptionPanel, type PlanOption, type SubscriptionView } from "./SubscriptionPanel";
 import { Modal } from "@/components/crm/Modal";
 import PageHeader, { PageBody } from "@/components/crm/PageHeader";
 import { useToast } from "@/components/crm/Toast";
@@ -24,7 +25,7 @@ export type SettingsLoadState =
   | { kind: "ready"; labels: Label[]; attributes: CustomAttribute[] }
   | { kind: "error"; message: string };
 
-export type Tab = "perfil" | "sonidos" | "etiquetas" | "atributos" | "soporte";
+export type Tab = "perfil" | "sonidos" | "etiquetas" | "atributos" | "suscripcion" | "soporte";
 type FieldErrors = Record<string, string | undefined>;
 
 // Operaciones de Configuración: contra la API, o en memoria en el modo demo.
@@ -80,8 +81,10 @@ export default function ConfiguracionView(props: {
   account: { id: number; name: string };
   initialState: SettingsLoadState;
   initialTab: Tab;
-  // Etiquetas y atributos: solo quien administra la cuenta
+  // Etiquetas, atributos y suscripción: solo quien administra la cuenta
   canManage: boolean;
+  subscription: SubscriptionView | null;
+  plans: PlanOption[];
 }) {
   const { demo } = useCrmShell();
   return <Configuracion key={demo ? "demo" : "real"} {...props} demo={demo} />;
@@ -92,12 +95,16 @@ function Configuracion({
   initialState,
   initialTab,
   canManage,
+  subscription,
+  plans,
   demo,
 }: {
   account: { id: number; name: string };
   initialState: SettingsLoadState;
   initialTab: Tab;
   canManage: boolean;
+  subscription: SubscriptionView | null;
+  plans: PlanOption[];
   demo: boolean;
 }) {
   const { user } = useCrmShell();
@@ -129,6 +136,7 @@ function Configuracion({
       ? [
           { id: "etiquetas" as const, label: "Etiquetas", icon: "tag" as const, count: labels.length },
           { id: "atributos" as const, label: "Atributos", icon: "panel" as const, count: attributes.length },
+          { id: "suscripcion" as const, label: "Suscripción", icon: "card" as const },
         ]
       : []),
     { id: "soporte", label: "Soporte", icon: "info" },
@@ -217,6 +225,11 @@ function Configuracion({
       {tab === "sonidos" && (
         <div role="tabpanel" id="panel-sonidos" aria-labelledby="tab-sonidos">
           <SoundsPanel />
+        </div>
+      )}
+      {tab === "suscripcion" && canManage && (
+        <div role="tabpanel" id="panel-suscripcion" aria-labelledby="tab-suscripcion">
+          <SubscriptionPanel account={account} subscription={demo ? demoSubscription() : subscription} plans={plans} />
         </div>
       )}
       {tab === "soporte" && (

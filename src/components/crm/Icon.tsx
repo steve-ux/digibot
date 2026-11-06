@@ -6,6 +6,7 @@ export type IconName =
   | "bell"
   | "bot"
   | "building"
+  | "card"
   | "chart"
   | "check"
   | "clip"

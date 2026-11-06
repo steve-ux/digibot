@@ -59,3 +59,29 @@ describe("foto de perfil", () => {
     expect(parseAvatarDataUrl(`data:image/jpeg;base64,${big.toString("base64")}`)).toHaveProperty("error");
   });
 });
+
+describe("versión del panel", async () => {
+  const { isOutdated } = await import("@/lib/version");
+
+  it("misma versión con distinta fecha de build no es desactualizado (bug de prod)", () => {
+    expect(isOutdated({ version: "0.11.0", buildTime: "2026-11-05T00:06:01Z" }, { version: "0.11.0", buildTime: "2026-11-05T00:06:09Z" })).toBe(false);
+  });
+
+  it("avisa cuando el servidor tiene otra versión", () => {
+    expect(isOutdated({ version: "0.11.0", buildTime: "a" }, { version: "0.12.0", buildTime: "a" })).toBe(true);
+  });
+
+  it("sin número de versión (dev) usa la fecha del build", () => {
+    expect(isOutdated({ version: null, buildTime: "a" }, { version: null, buildTime: "b" })).toBe(true);
+    expect(isOutdated({ version: null, buildTime: "a" }, { version: null, buildTime: "a" })).toBe(false);
+  });
+});
+
+describe("sonidos de canales que vienen", () => {
+  it("YouTube, Telegram y TikTok tienen sonido propio", () => {
+    const prefs = normalizeSoundPrefs({ channels: { tg: "pop" } });
+    expect(prefs.channels.yt).toBe("drop");
+    expect(prefs.channels.tg).toBe("pop");
+    expect(prefs.channels.tt).toBe("blip");
+  });
+});

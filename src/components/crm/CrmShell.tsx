@@ -12,6 +12,7 @@ import { playSound, unlockAudio } from "./sound-player";
 import { accountApi, accountPath, canAccess, type CrmRole, type Section } from "@/lib/crm/permissions";
 import { DEMO_COOKIE } from "@/lib/crm/demo-cookie";
 import { soundFor, type SoundPrefs } from "@/lib/crm/sound-prefs";
+import { currentBuild, isOutdated } from "@/lib/version";
 
 export interface CrmUser {
   id: number;
@@ -103,15 +104,15 @@ const VERSION_CHECK_MS = 10 * 60 * 1000;
 function useNewVersionAvailable() {
   const [available, setAvailable] = useState(false);
   useEffect(() => {
-    const mine = process.env.BUILD_TIME;
-    if (!mine) return;
+    const mine = currentBuild();
+    if (!mine.version && !mine.buildTime) return;
     let cancelled = false;
     const check = async () => {
       if (document.hidden) return;
       try {
         const res = await fetch("/api/version", { cache: "no-store" });
         const data = await res.json();
-        if (!cancelled && data.buildTime && data.buildTime !== mine) setAvailable(true);
+        if (!cancelled && isOutdated(mine, data)) setAvailable(true);
       } catch {
         // Sin conexión: se vuelve a probar en el próximo intervalo.
       }

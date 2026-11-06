@@ -2,12 +2,14 @@ import ConfiguracionView, { type SettingsLoadState, type Tab } from "@/component
 import { loadAccountPage } from "@/lib/crm/account-page";
 import { canAccess } from "@/lib/crm/permissions";
 import { getMySqlSettingsRepo } from "@/lib/crm/settings-mysql";
+import { getSubscription } from "@/lib/crm/subscription";
+import { getPlans } from "@/lib/pricing-plans";
 import { isDbConfigured } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const TABS: Tab[] = ["perfil", "sonidos", "etiquetas", "atributos", "soporte"];
-const ADMIN_TABS: Tab[] = ["etiquetas", "atributos"];
+const TABS: Tab[] = ["perfil", "sonidos", "etiquetas", "atributos", "suscripcion", "soporte"];
+const ADMIN_TABS: Tab[] = ["etiquetas", "atributos", "suscripcion"];
 
 async function load(accountId: number): Promise<SettingsLoadState> {
   if (!isDbConfigured()) return { kind: "error", message: "La base de datos no está configurada." };
@@ -37,13 +39,17 @@ export default async function ConfiguracionPage({
   const canManage = canAccess(me.role, "settings");
   const requested = TABS.find((t) => t === query.tab);
   const tab = requested && (canManage || !ADMIN_TABS.includes(requested)) ? requested : "perfil";
-  const initialState: SettingsLoadState = canManage ? await load(account.id) : { kind: "ready", labels: [], attributes: [] };
+  const [initialState, subscription, plans] = canManage
+    ? await Promise.all([load(account.id), getSubscription(account.id), getPlans()])
+    : [{ kind: "ready", labels: [], attributes: [] } satisfies SettingsLoadState, null, []];
   return (
     <ConfiguracionView
       account={{ id: account.id, name: account.name }}
       initialState={initialState}
       initialTab={tab}
       canManage={canManage}
+      subscription={subscription}
+      plans={plans}
     />
   );
 }

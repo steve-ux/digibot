@@ -3,7 +3,7 @@
 
 import { CHANNEL_IDS, type ChannelId } from "./channels";
 
-export const SOUND_IDS = ["bubble", "chime", "ding", "pop", "sparkle", "knock", "click"] as const;
+export const SOUND_IDS = ["bubble", "chime", "ding", "pop", "sparkle", "knock", "click", "drop", "pluck", "blip"] as const;
 export type SoundId = (typeof SOUND_IDS)[number];
 // "off" = ese canal no suena
 export type ChannelSound = SoundId | "off";
@@ -16,20 +16,46 @@ export const SOUND_LABELS: Record<SoundId, string> = {
   sparkle: "Destello",
   knock: "Toc toc",
   click: "Clic",
+  drop: "Gota",
+  pluck: "Cuerda",
+  blip: "Blip",
 };
+
+// Canales que todavía no se conectan (YouTube, Telegram, TikTok): ya se les puede
+// elegir sonido para cuando lleguen.
+export type UpcomingChannelId = "yt" | "tg" | "tt";
+export type SoundChannelId = ChannelId | UpcomingChannelId;
+
+export const UPCOMING_SOUND_CHANNELS: { id: UpcomingChannelId; name: string; icon: string }[] = [
+  { id: "yt", name: "YouTube", icon: "/crm/channels/YouTube-logo.png" },
+  { id: "tg", name: "Telegram", icon: "/crm/channels/Telegram_logo.svg.webp" },
+  { id: "tt", name: "TikTok", icon: "/crm/channels/log_tiktok.avif" },
+];
+
+const SOUND_CHANNEL_IDS: SoundChannelId[] = [...CHANNEL_IDS, ...UPCOMING_SOUND_CHANNELS.map((c) => c.id)];
 
 export interface SoundPrefs {
   enabled: boolean;
   // 0 a 100
   volume: number;
-  channels: Record<ChannelId, ChannelSound>;
+  channels: Record<SoundChannelId, ChannelSound>;
 }
 
 // Un sonido distinto por canal para reconocerlo sin mirar la pantalla.
 export const DEFAULT_SOUND_PREFS: SoundPrefs = {
   enabled: true,
   volume: 70,
-  channels: { wa: "bubble", ig: "chime", igc: "sparkle", fb: "ding", fbc: "knock", th: "click" },
+  channels: {
+    wa: "bubble",
+    ig: "chime",
+    igc: "sparkle",
+    fb: "ding",
+    fbc: "knock",
+    th: "click",
+    yt: "drop",
+    tg: "pluck",
+    tt: "blip",
+  },
 };
 
 const isChannelSound = (v: unknown): v is ChannelSound => v === "off" || SOUND_IDS.includes(v as SoundId);
@@ -39,8 +65,8 @@ export function normalizeSoundPrefs(value: unknown): SoundPrefs {
   const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const rawChannels = raw.channels && typeof raw.channels === "object" ? (raw.channels as Record<string, unknown>) : {};
   const volume = Number(raw.volume);
-  const channels = {} as Record<ChannelId, ChannelSound>;
-  for (const id of CHANNEL_IDS) {
+  const channels = {} as Record<SoundChannelId, ChannelSound>;
+  for (const id of SOUND_CHANNEL_IDS) {
     channels[id] = isChannelSound(rawChannels[id]) ? rawChannels[id] : DEFAULT_SOUND_PREFS.channels[id];
   }
   return {

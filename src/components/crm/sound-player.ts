@@ -74,6 +74,16 @@ const PRESETS: Record<SoundId, Tone[]> = {
     { type: "square", from: 2400, at: 0, dur: 0.03, gain: 0.22 },
     { type: "square", from: 1800, at: 0.055, dur: 0.025, gain: 0.18 },
   ],
+  // Gota de agua: cae rápido de agudo a grave
+  drop: [{ type: "sine", from: 1400, to: 380, at: 0, dur: 0.14, gain: 0.8 }],
+  pluck: [
+    { type: "triangle", from: 659, at: 0, dur: 0.35, gain: 0.6 },
+    { type: "triangle", from: 988, at: 0.09, dur: 0.4, gain: 0.45 },
+  ],
+  blip: [
+    { type: "square", from: 880, to: 1320, at: 0, dur: 0.07, gain: 0.18 },
+    { type: "square", from: 1320, to: 1760, at: 0.09, dur: 0.07, gain: 0.15 },
+  ],
 };
 
 // volume 0-100. force = "Probar" en Configuración (no respeta el intervalo mínimo).

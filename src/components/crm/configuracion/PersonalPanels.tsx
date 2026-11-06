@@ -9,8 +9,22 @@ import Icon from "@/components/crm/Icon";
 import { useToast } from "@/components/crm/Toast";
 import UserAvatar from "@/components/crm/UserAvatar";
 import { playSound, unlockAudio } from "@/components/crm/sound-player";
-import { CHANNEL_IDS, CHANNELS, type ChannelId } from "@/lib/crm/channels";
-import { SOUND_IDS, SOUND_LABELS, type ChannelSound, type SoundPrefs } from "@/lib/crm/sound-prefs";
+import { CHANNEL_IDS, CHANNELS } from "@/lib/crm/channels";
+import {
+  SOUND_IDS,
+  SOUND_LABELS,
+  UPCOMING_SOUND_CHANNELS,
+  type ChannelSound,
+  type SoundChannelId,
+  type SoundPrefs,
+} from "@/lib/crm/sound-prefs";
+
+// Filas de Sonidos: los canales de Meta y, al final, YouTube, Telegram y TikTok (plan Plus+).
+const SOUND_ROWS: { id: SoundChannelId; name: string; icon: string }[] = [
+  ...CHANNEL_IDS.map((id) => ({ id, name: CHANNELS[id].longName, icon: CHANNELS[id].icon })),
+  ...UPCOMING_SOUND_CHANNELS,
+];
+import { currentBuild, isOutdated, type BuildInfo } from "@/lib/version";
 import { waLink } from "@/lib/whatsapp";
 
 const card = "rounded-card border border-crm-border bg-crm-card px-5 py-5 md:px-[22px]";
@@ -201,7 +215,7 @@ export function SoundsPanel() {
     playSound(sound, sounds.volume || 70, true);
   };
 
-  const setChannel = (id: ChannelId, sound: ChannelSound) => {
+  const setChannel = (id: SoundChannelId, sound: ChannelSound) => {
     update({ ...sounds, channels: { ...sounds.channels, [id]: sound } });
     test(sound);
   };
@@ -250,14 +264,14 @@ export function SoundsPanel() {
       </div>
 
       <div className={`rounded-card border border-crm-border bg-crm-card px-4 py-1.5 md:px-[22px] ${sounds.enabled ? "" : "opacity-50"}`}>
-        {CHANNEL_IDS.map((id, i) => {
+        {SOUND_ROWS.map(({ id, name, icon }, i) => {
           const value = sounds.channels[id];
           return (
             <div key={id} className={`flex flex-wrap items-center gap-x-4 gap-y-2 py-3 ${i ? "border-t border-crm-border" : ""}`}>
               <div className="flex min-w-0 flex-[1_1_200px] items-center gap-3">
-                <img src={CHANNELS[id].icon} alt="" width={26} height={26} className="shrink-0" />
+                <img src={icon} alt="" width={26} height={26} className="h-[26px] w-[26px] shrink-0 object-contain" />
                 <label htmlFor={`sound-${id}`} className="truncate text-[15px] font-semibold text-crm-ink">
-                  {CHANNELS[id].longName}
+                  {name}
                 </label>
               </div>
               <div className="ml-auto flex items-center gap-2">
@@ -278,7 +292,7 @@ export function SoundsPanel() {
                 <button
                   onClick={() => test(value)}
                   disabled={!sounds.enabled || value === "off"}
-                  aria-label={`Probar el sonido de ${CHANNELS[id].longName}`}
+                  aria-label={`Probar el sonido de ${name}`}
                   title="Probar"
                   className="flex h-10 w-10 items-center justify-center rounded-pill border border-crm-border bg-crm-chip text-crm-ink-2 transition-colors hover:border-crm-primary hover:text-crm-primary disabled:opacity-50"
                 >
@@ -300,10 +314,7 @@ export function SoundsPanel() {
 
 // ---------- Soporte ----------
 
-interface ServerVersion {
-  version: string | null;
-  buildTime: string | null;
-}
+type ServerVersion = BuildInfo;
 
 function browserName(ua: string) {
   const match =
@@ -344,7 +355,7 @@ function formatDate(iso: string | null | undefined) {
 export function SupportPanel({ account }: { account: { id: number; name: string } }) {
   const { user } = useCrmShell();
   const toast = useToast();
-  const mine: ServerVersion = { version: process.env.APP_VERSION || null, buildTime: process.env.BUILD_TIME || null };
+  const mine = currentBuild();
   const [server, setServer] = useState<ServerVersion | null | "error">(null);
   const [env, setEnv] = useState({ browser: "", screen: "", timezone: "" });
 
@@ -360,8 +371,7 @@ export function SupportPanel({ account }: { account: { id: number; name: string 
     });
   }, []);
 
-  const outdated =
-    server && server !== "error" && Boolean(server.buildTime && mine.buildTime && server.buildTime !== mine.buildTime);
+  const outdated = Boolean(server && server !== "error" && isOutdated(mine, server));
   const versionLabel = mine.version ? `v${mine.version}` : "Desarrollo";
 
   const status =
@@ -370,7 +380,13 @@ export function SupportPanel({ account }: { account: { id: number; name: string 
       : server === "error"
         ? { tone: "muted", text: "No se pudo consultar la última versión." }
         : outdated
-          ? { tone: "warn", text: `Hay una versión más nueva${server.version ? ` (v${server.version})` : ""}. Recargá la página.` }
+          ? {
+              tone: "warn",
+              text:
+                server.version && server.version !== mine.version
+                  ? `Hay una versión más nueva (v${server.version}). Recargá la página.`
+                  : "Hay una actualización del panel. Recargá la página.",
+            }
           : { tone: "ok", text: "Estás usando la última versión." };
 
   const rows: [string, string][] = [

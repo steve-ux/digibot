@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 
+// Fecha del build, fijada UNA vez: next build evalúa este archivo en varios procesos
+// (server, cliente) y con un new Date() suelto cada bundle quedaba con otra hora, así
+// que el panel siempre creía estar desactualizado. Se guarda en process.env para que
+// los workers la hereden; el Dockerfile además la pasa armada desde afuera.
+process.env.BUILD_TIME ||= new Date().toISOString();
+
 const nextConfig: NextConfig = {
   // Permite un segundo dev/build en otra carpeta sin pisar el .next del dev server principal.
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -10,7 +16,7 @@ const nextConfig: NextConfig = {
     APP_VERSION: process.env.APP_VERSION ?? "",
     // Fecha del build: el panel la compara con la del servidor (/api/version) para
     // saber si la pestaña quedó con una versión vieja, aunque no se haya cambiado el número.
-    BUILD_TIME: new Date().toISOString(),
+    BUILD_TIME: process.env.BUILD_TIME,
   },
   images: {
     unoptimized: true,

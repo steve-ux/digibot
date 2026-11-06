@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { currentBuild } from "@/lib/version";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 // desde antes del deploy) y la muestra en Configuración → Soporte.
 export function GET() {
   return NextResponse.json(
-    { version: process.env.APP_VERSION || null, buildTime: process.env.BUILD_TIME || null },
+    currentBuild(),
     { headers: { "Cache-Control": "no-store" } }
   );
 }
