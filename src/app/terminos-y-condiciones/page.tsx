@@ -1,5 +1,6 @@
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import LegalOwner from "../../components/LegalOwner";
 
 export default function TerminosYCondiciones() {
   return (
@@ -14,6 +15,8 @@ export default function TerminosYCondiciones() {
           Última actualización: {new Date().toLocaleDateString("es-AR")}
         </p>
         <div className="space-y-10 leading-relaxed text-base">
+          <LegalOwner />
+
           <section>
             <h2 className="text-xl font-semibold mb-2">Introducción</h2>
             <p>
