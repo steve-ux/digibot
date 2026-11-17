@@ -91,7 +91,11 @@ export async function middleware(req: NextRequest) {
       const fallback = route.accountId !== null ? accountPath(route.accountId) : homeFor(session);
       return NextResponse.redirect(new URL(fallback, req.url));
     }
-  } else if (isApi && pathname.startsWith("/api/admin/superadmins") && session.role !== "superadmin") {
+  } else if (
+    isApi &&
+    (pathname.startsWith("/api/admin/superadmins") || pathname.startsWith("/api/admin/whatsapp-cuentas")) &&
+    session.role !== "superadmin"
+  ) {
     return json(403, "forbidden", "No tenés permiso para hacer esto.");
   }
 

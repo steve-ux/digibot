@@ -6,7 +6,7 @@ export const CUSTOMER_WA_ID = "5492615551234";
 // Cómo hay que mandarle a ese mismo cliente (sin el 9 de celular argentino).
 export const CUSTOMER_RECIPIENT = "542615551234";
 
-function envelope(field: string, value: Record<string, unknown>) {
+export function envelope(field: string, value: Record<string, unknown>) {
   return {
     object: "whatsapp_business_account",
     entry: [

@@ -20,6 +20,8 @@ export interface WhatsAppConnection {
   accessToken: string;
   apiVersion: string;
   connectedAt: number | null;
+  // active · needs_attention · disconnected (desconectado por Meta: no se envía más)
+  health: "active" | "needs_attention" | "disconnected";
 }
 
 interface ConnectionRow extends RowDataPacket {
@@ -31,6 +33,7 @@ interface ConnectionRow extends RowDataPacket {
   verified_name: string | null;
   access_token_enc: string;
   connected_ts: number | string | null;
+  health?: WhatsAppConnection["health"];
 }
 
 const apiVersion = () => process.env.META_GRAPH_API_VERSION || "v23.0";
@@ -41,23 +44,23 @@ let cache: { at: number; promise: Promise<WhatsAppConnection[]> } | null = null;
 
 async function fetchConnections(): Promise<WhatsAppConnection[]> {
   if (!isDbConfigured()) return [];
-  let rows: ConnectionRow[];
-  try {
-    [rows] = await getPool().query<ConnectionRow[]>(
-      `SELECT id, client_id, waba_id, phone_number_id, display_phone_number, verified_name, access_token_enc,
-              UNIX_TIMESTAMP(connected_at) AS connected_ts
-       FROM web_whatsapp_connections
-       WHERE status = 'connected'
-       ORDER BY id ASC`
-    );
-  } catch (err) {
-    // Sin la migración 0010 (columnas display_phone_number / verified_name) se leen las básicas.
-    if ((err as { code?: string }).code !== "ER_BAD_FIELD_ERROR") throw err;
-    [rows] = await getPool().query<ConnectionRow[]>(
-      `SELECT id, client_id, waba_id, phone_number_id, NULL AS display_phone_number, NULL AS verified_name,
-              access_token_enc, UNIX_TIMESTAMP(connected_at) AS connected_ts
-       FROM web_whatsapp_connections WHERE status = 'connected' ORDER BY id ASC`
-    );
+  const base = `id, client_id, waba_id, phone_number_id, access_token_enc, UNIX_TIMESTAMP(connected_at) AS connected_ts`;
+  // Columnas de cada migración, de la más nueva a la más vieja (0015: health · 0010: número y nombre).
+  const variants = [
+    `${base}, display_phone_number, verified_name, health`,
+    `${base}, display_phone_number, verified_name, 'active' AS health`,
+    `${base}, NULL AS display_phone_number, NULL AS verified_name, 'active' AS health`,
+  ];
+  let rows: ConnectionRow[] = [];
+  for (const [i, columns] of variants.entries()) {
+    try {
+      [rows] = await getPool().query<ConnectionRow[]>(
+        `SELECT ${columns} FROM web_whatsapp_connections WHERE status = 'connected' ORDER BY id ASC`
+      );
+      break;
+    } catch (err) {
+      if ((err as { code?: string }).code !== "ER_BAD_FIELD_ERROR" || i === variants.length - 1) throw err;
+    }
   }
   return rows.map((row) => ({
     id: row.id,
@@ -69,6 +72,7 @@ async function fetchConnections(): Promise<WhatsAppConnection[]> {
     accessToken: decryptSecret(row.access_token_enc),
     apiVersion: apiVersion(),
     connectedAt: row.connected_ts === null ? null : Number(row.connected_ts),
+    health: row.health ?? "active",
   }));
 }
 
@@ -106,6 +110,7 @@ function envConnection(): WhatsAppConnection | null {
     accessToken,
     apiVersion: apiVersion(),
     connectedAt: null,
+    health: "active",
   };
 }
 
@@ -134,4 +139,22 @@ export async function getConnectionByPhoneNumberId(phoneNumberId: string | null 
   }
   // Nunca se cae a la conexión de otra cuenta: solo a la heredada sin número guardado.
   return all.find((c) => !c.phoneNumberId) ?? (all.length === 1 && !phoneNumberId ? all[0] : null);
+}
+
+// Números de la cuenta que Meta desconectó (la bandeja muestra "WhatsApp desconectado").
+export async function disconnectedPhoneNumberIds(accountId: number): Promise<Set<string>> {
+  const all = await listWhatsAppConnections().catch(() => [] as WhatsAppConnection[]);
+  return new Set(
+    all.filter((c) => c.clientId === accountId && c.health === "disconnected" && c.phoneNumberId).map((c) => c.phoneNumberId!)
+  );
+}
+
+// Marca las conversaciones de WhatsApp cuyo número desconectó Meta.
+export async function withChannelHealth<T extends { channel: string; phoneNumberId: string; channelDisconnected?: boolean }>(
+  accountId: number,
+  conversations: T[]
+): Promise<T[]> {
+  const down = await disconnectedPhoneNumberIds(accountId);
+  if (down.size === 0) return conversations;
+  return conversations.map((c) => (c.channel === "wa" && down.has(c.phoneNumberId) ? { ...c, channelDisconnected: true } : c));
 }

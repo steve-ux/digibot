@@ -6,6 +6,7 @@
 //   - envíos: la conexión dueña del número de la conversación
 
 import { deleteTemplateRecord, upsertTemplateRecord } from "./templates-store";
+import { reportTokenError } from "./whatsapp-accounts/health";
 import {
   getConnectionByPhoneNumberId,
   getConnectionForAccount,
@@ -68,7 +69,7 @@ async function connectionForAccount(accountId: number) {
 }
 
 export async function graphRequest(
-  connection: Pick<WhatsAppConnection, "accessToken" | "apiVersion">,
+  connection: Pick<WhatsAppConnection, "accessToken" | "apiVersion"> & { id?: number },
   path: string,
   init?: RequestInit
 ) {
@@ -88,10 +89,13 @@ export async function graphRequest(
   if (!res.ok) {
     const error = data?.error;
     const message = error?.message || `Error ${res.status} al llamar a la API de Meta`;
+    const code = typeof error?.code === "number" ? error.code : null;
+    // 190 / 200 / 10 con el token del cliente: se marca la conexión (ver whatsapp-accounts/health.ts).
+    if (connection.id) await reportTokenError(connection.id, code, message);
     throw new MetaApiError(
       message,
       res.status,
-      typeof error?.code === "number" ? error.code : null,
+      code,
       error?.error_user_title || error?.message || null,
       typeof error?.error_subcode === "number" ? error.error_subcode : null
     );
@@ -266,6 +270,9 @@ export async function sendWhatsAppMessage(
   const connection = await getConnectionByPhoneNumberId(phoneNumberId);
   if (!connection) {
     throw new MetaConfigError("No hay ningún número de WhatsApp conectado. Conectalo desde Canales.");
+  }
+  if (connection.health === "disconnected") {
+    throw new MetaConfigError("WhatsApp desconectado: no se puede enviar. Reconectá el número desde Canales.");
   }
   const fromId = phoneNumberId || connection.phoneNumberId;
   if (!fromId) {

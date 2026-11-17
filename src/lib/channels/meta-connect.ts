@@ -81,45 +81,6 @@ export async function longLivedFacebookToken(token: string, app: { appId: string
   }
 }
 
-// ---------- WhatsApp ----------
-
-export async function subscribeAppToWaba(token: string, wabaId: string) {
-  await call(graph(), `/${wabaId}/subscribed_apps`, { method: "POST", token }, "No pudimos activar los mensajes de este número.");
-}
-
-export async function unsubscribeAppFromWaba(token: string, wabaId: string) {
-  await call(graph(), `/${wabaId}/subscribed_apps`, { method: "DELETE", token }, "No pudimos desactivar los mensajes.");
-}
-
-// Registra el número en la Cloud API. Si ya estaba registrado, Meta da error y se sigue igual.
-export async function registerPhoneNumber(token: string, phoneNumberId: string, pin: string) {
-  try {
-    await call(
-      graph(),
-      `/${phoneNumberId}/register`,
-      { method: "POST", token, json: { messaging_product: "whatsapp", pin } },
-      "No pudimos registrar el número."
-    );
-    return true;
-  } catch (err) {
-    console.warn("[canales] El registro del número no se completó (puede que ya estuviera registrado):", (err as ConnectError).detail);
-    return false;
-  }
-}
-
-export async function fetchPhoneNumber(token: string, phoneNumberId: string) {
-  const data = await call(
-    graph(),
-    `/${phoneNumberId}`,
-    { token, query: { fields: "display_phone_number,verified_name" } },
-    "No pudimos leer los datos del número."
-  );
-  return {
-    displayPhoneNumber: (data.display_phone_number as string | undefined) ?? null,
-    verifiedName: (data.verified_name as string | undefined) ?? null,
-  };
-}
-
 // ---------- Páginas e Instagram ----------
 
 export interface MetaPage {

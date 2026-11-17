@@ -1,17 +1,19 @@
 // Conectar y desconectar canales de una cuenta. Server-only.
 //
-//   WhatsApp   -> Embedded Signup (SDK de Facebook): el navegador manda el código + waba_id + phone_number_id
+//   WhatsApp   -> Embedded Signup por sesión: ver src/lib/whatsapp-accounts/onboarding.ts
 //   Facebook / Instagram -> Facebook Login for Business: con el código se listan las páginas, la
 //                 persona elige cuáles (y su Instagram) y recién ahí se guardan
 //   Threads    -> OAuth con redirect; el token dura 60 días y se renueva solo
 //
 // Un número / página / perfil no puede estar conectado a dos cuentas de DigiBot a la vez.
 
-import { randomInt } from "node:crypto";
 import { metaAppCredentials, publicBaseUrl, threadsAppCredentials, THREADS_CALLBACK_PATH, THREADS_SCOPES } from "./config";
 import * as meta from "./meta-connect";
 import { ConnectError } from "./meta-connect";
-import type { ChannelsRepo, SocialKind, SocialRecord, WhatsAppRecord } from "./repo";
+import { unsubscribeApp } from "../whatsapp-accounts/graph";
+import type { WaRepo } from "../whatsapp-accounts/repo";
+import { getWaDeps } from "../whatsapp-accounts/runtime";
+import type { ChannelsRepo, SocialKind, SocialRecord } from "./repo";
 import { seal, unseal } from "./seal";
 import type { ConnectedAccount, PageChoice, ProviderId } from "./types";
 
@@ -29,19 +31,6 @@ const STATE_TTL = 10 * 60;
 export const THREADS_REFRESH_WINDOW = 10 * 24 * 3600;
 
 const PROVIDER_OF: Record<SocialKind, ProviderId> = { fb: "facebook", ig: "instagram", th: "threads" };
-
-export function whatsappAccountView(w: WhatsAppRecord): ConnectedAccount {
-  return {
-    key: `wa:${w.id}`,
-    provider: "whatsapp",
-    title: w.displayPhoneNumber ?? w.phoneNumberId,
-    subtitle: w.verifiedName,
-    pictureUrl: null,
-    connectedAt: w.connectedAt,
-    expiresAt: null,
-    fromEnv: false,
-  };
-}
 
 export function socialAccountView(s: SocialRecord): ConnectedAccount {
   const subtitle =
@@ -68,42 +57,6 @@ function requireMetaApp() {
   const app = metaAppCredentials();
   if (!app) throw new ConnectError("La conexión con Meta todavía no está habilitada.", 503);
   return app;
-}
-
-const isGraphId = (value: unknown): value is string => typeof value === "string" && /^\d{5,30}$/.test(value);
-
-// ---------- WhatsApp (Embedded Signup) ----------
-
-export async function connectWhatsApp(repo: ChannelsRepo, ctx: ConnectContext, body: unknown) {
-  const data = (body ?? {}) as Record<string, unknown>;
-  if (typeof data.code !== "string" || !data.code || !isGraphId(data.wabaId) || !isGraphId(data.phoneNumberId)) {
-    throw new ConnectError("Faltan datos de la conexión. Volvé a intentarlo desde el botón Conectar.");
-  }
-  const app = requireMetaApp();
-  const existing = await repo.findWhatsAppByPhone(data.phoneNumberId);
-  if (existing && existing.accountId !== ctx.accountId) throw new ConnectError(`Ese número ${TAKEN}`, 409);
-
-  const token = await meta.exchangeFacebookCode(data.code, app);
-  await meta.subscribeAppToWaba(token, data.wabaId);
-  const pin = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const registered = await meta.registerPhoneNumber(token, data.phoneNumberId, pin);
-  const info = await meta.fetchPhoneNumber(token, data.phoneNumberId).catch(() => ({
-    displayPhoneNumber: null,
-    verifiedName: null,
-  }));
-
-  const id = await repo.saveWhatsApp({
-    accountId: ctx.accountId,
-    wabaId: data.wabaId,
-    phoneNumberId: data.phoneNumberId,
-    displayPhoneNumber: info.displayPhoneNumber,
-    verifiedName: info.verifiedName,
-    accessToken: token,
-    connectedBy: ctx.userId || null,
-    pin: registered ? pin : null,
-  });
-  const saved = (await repo.listWhatsApp(ctx.accountId)).find((w) => w.id === id);
-  return saved ? whatsappAccountView(saved) : null;
 }
 
 // ---------- Facebook e Instagram (Login for Business) ----------
@@ -299,17 +252,20 @@ export async function refreshExpiringThreads(repo: ChannelsRepo, now = Math.floo
 
 // ---------- Desconectar ----------
 
-export async function disconnectChannel(repo: ChannelsRepo, accountId: number, key: unknown) {
+export async function disconnectChannel(repo: ChannelsRepo, accountId: number, key: unknown, waRepo?: WaRepo) {
   const match = typeof key === "string" ? /^(wa|social):(\d+)$/.exec(key) : null;
   if (!match) throw new ConnectError("Esa conexión no se puede desconectar desde el panel.", 400);
   const id = Number(match[2]);
 
   if (match[1] === "wa") {
-    const removed = await repo.disconnectWhatsApp(accountId, id);
+    const wa = waRepo ?? (await getWaDeps()).repo;
+    const removed = await wa.revokeAccount(accountId, id);
     if (!removed) throw new ConnectError("La conexión no existe.", 404);
     // Si no quedan números de ese WABA en la cuenta, se deja de recibir sus mensajes.
-    const others = (await repo.listWhatsApp(accountId)).some((w) => w.wabaId === removed.wabaId);
-    if (!others) await meta.unsubscribeAppFromWaba(removed.accessToken, removed.wabaId).catch(() => undefined);
+    const others = (await wa.listByAccount(accountId)).some((w) => w.wabaId === removed.wabaId);
+    if (!others && removed.health !== "disconnected") {
+      await unsubscribeApp(removed.accessToken, removed.wabaId, removed.id).catch(() => undefined);
+    }
     return removed;
   }
 

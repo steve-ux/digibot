@@ -3,9 +3,12 @@
 // Campos soportados:
 //   messages            -> value.messages[] (entrantes) y value.statuses[] (estados de salientes)
 //   smb_message_echoes  -> mensajes enviados desde la app de WhatsApp Business (coexistencia)
+//   account_update      -> alta / baja / reconexión de la cuenta (ver whatsapp-accounts/webhook-events.ts)
+//   history, smb_app_state_sync -> historial y contactos de la app (se encolan y se procesan aparte)
 // Cualquier otra cosa se loguea y se ignora sin romper.
 
 import { createHmac, timingSafeEqual } from "crypto";
+import type { WaDeps } from "../whatsapp-accounts/runtime";
 import { getInboxStore, type InboxStore } from "./store";
 import type { MessageStatus } from "./types";
 
@@ -44,7 +47,15 @@ interface WaMessage {
     list_reply?: { id: string; title: string; description?: string };
   };
   reaction?: { emoji?: string };
+  // Coexistencia: 131060 = el mensaje solo se puede ver en la app de WhatsApp Business
+  errors?: { code?: number; title?: string; message?: string }[];
 }
+
+// Lo mínimo para describir un mensaje (también lo usa el historial).
+export type WaMessageLike = Partial<Omit<WaMessage, "type">> & { type?: string };
+
+export const BIZ_APP_ONLY_CODE = 131060;
+export const BIZ_APP_ONLY_TEXT = "⚠️ Revisá este mensaje en la app de WhatsApp Business";
 
 interface WaEcho extends WaMessage {
   to: string;
@@ -90,7 +101,8 @@ function withDetail(placeholder: string, detail?: string) {
 }
 
 // Texto legible que se guarda en body y se usa como preview de la conversación.
-export function describeMessage(message: WaMessage): string {
+export function describeMessage(message: WaMessageLike): string {
+  if (message.errors?.some((e) => e.code === BIZ_APP_ONLY_CODE)) return BIZ_APP_ONLY_TEXT;
   switch (message.type) {
     case "text":
       return message.text?.body ?? "";
@@ -116,7 +128,7 @@ export function describeMessage(message: WaMessage): string {
     case "reaction":
       return withDetail("[reacción]", message.reaction?.emoji);
     default:
-      return PLACEHOLDERS[message.type] ?? `[${message.type}]`;
+      return message.type ? (PLACEHOLDERS[message.type] ?? `[${message.type}]`) : PLACEHOLDERS.unsupported;
   }
 }
 
@@ -200,7 +212,7 @@ async function handleEchoesChange(value: ChangeValue, store: InboxStore) {
       wamid: echo.id,
       direction: "out",
       author: "agent",
-      authorName: "App de WhatsApp Business",
+      authorName: "Enviado desde el celular",
       type: echo.type,
       body,
       status: "sent",
@@ -213,7 +225,7 @@ async function handleEchoesChange(value: ChangeValue, store: InboxStore) {
   }
 }
 
-export async function processWebhookPayload(payload: unknown, store?: InboxStore) {
+export async function processWebhookPayload(payload: unknown, store?: InboxStore, waDeps?: WaDeps) {
   const data = payload as WebhookPayload;
   if (data?.object !== "whatsapp_business_account" || !Array.isArray(data.entry)) {
     console.warn(`${LOG} Payload desconocido:`, JSON.stringify(payload).slice(0, 2000));
@@ -221,6 +233,7 @@ export async function processWebhookPayload(payload: unknown, store?: InboxStore
   }
 
   const inbox = store ?? (await getInboxStore());
+  let queued = false;
 
   for (const entry of data.entry) {
     for (const change of entry.changes ?? []) {
@@ -232,6 +245,19 @@ export async function processWebhookPayload(payload: unknown, store?: InboxStore
         case "smb_message_echoes":
           await handleEchoesChange(change.value, inbox);
           break;
+        case "account_update": {
+          const events = await import("../whatsapp-accounts/webhook-events");
+          await events.handleAccountUpdate(entry.id, change.value as unknown as Record<string, unknown>, waDeps);
+          break;
+        }
+        case "history":
+        case "smb_app_state_sync": {
+          // Pueden ser miles de mensajes: se guardan crudos y se procesan en segundo plano.
+          const events = await import("../whatsapp-accounts/webhook-events");
+          await events.enqueueWebhookChange(change.field, entry.id, change.value as unknown as Record<string, unknown>, waDeps);
+          queued = true;
+          break;
+        }
         default:
           console.warn(
             `${LOG} Campo "${change.field}" no manejado:`,
@@ -240,4 +266,5 @@ export async function processWebhookPayload(payload: unknown, store?: InboxStore
       }
     }
   }
+  return { queued };
 }

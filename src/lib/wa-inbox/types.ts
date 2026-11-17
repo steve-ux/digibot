@@ -37,6 +37,8 @@ export interface InboxConversation {
   unreadCount: number;
   // Segundos que quedan de la ventana de 24 h desde el último mensaje del cliente (0 = cerrada)
   windowSecondsLeft: number;
+  // WhatsApp: Meta desconectó el número del negocio (no se puede responder hasta reconectarlo)
+  channelDisconnected?: boolean;
   status: ConversationStatus;
   // "IA respondiendo": DigiBot atiende el chat. Tomarlo lo pone en false.
   botActive: boolean;

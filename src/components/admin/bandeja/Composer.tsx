@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/crm/Icon";
 import { useToast } from "@/components/crm/Toast";
@@ -15,6 +16,7 @@ const MAX_HEIGHT = 140;
 
 // Qué se muestra abajo del chat: uno solo de estos estados a la vez.
 export function composerState(c: InboxConversation) {
+  if (c.channel === "wa" && c.channelDisconnected) return "disconnected" as const;
   if (c.status === "resolved") return "resolved" as const;
   if (c.botActive) return "bot" as const;
   if (c.channel === "wa" && c.windowSecondsLeft <= 0) return "gate" as const;
@@ -130,6 +132,31 @@ export default function Composer({
           <PrimaryButton onClick={onTakeOver} busy={busyAction}>
             Tomar conversación
           </PrimaryButton>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === "disconnected") {
+    return (
+      <div className={wrap}>
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3.5 rounded-[18px] border border-crm-error-border bg-crm-error-bg px-4 py-3.5"
+        >
+          <Icon name="lock" size={22} className="text-crm-error" />
+          <div className="min-w-[180px] flex-1">
+            <div className="text-[15px] font-semibold text-crm-error-ink">WhatsApp desconectado</div>
+            <div className="text-[13px] text-crm-error-ink">
+              No se puede responder desde este número hasta que un administrador lo reconecte en Canales.
+            </div>
+          </div>
+          <Link
+            href={`/admin/cuentas/${conversation.accountId}/canales`}
+            className="flex h-11 shrink-0 items-center rounded-pill bg-crm-primary px-5 font-poppins text-sm font-semibold text-white transition-colors hover:bg-crm-primary-hover"
+          >
+            Ir a Canales
+          </Link>
         </div>
       </div>
     );

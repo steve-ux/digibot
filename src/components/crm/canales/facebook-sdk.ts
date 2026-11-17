@@ -1,6 +1,10 @@
 // SDK de Facebook (JS) para el Embedded Signup de WhatsApp y Facebook Login for
 // Business. Se carga una sola vez y solo en Canales. Devuelve el "code" que el
 // servidor cambia por el token: el token nunca pasa por el navegador.
+//
+// Embedded Signup (v5): el code del callback de FB.login y el evento WA_EMBEDDED_SIGNUP
+// (postMessage del popup) llegan en cualquier orden; cada uno se manda al servidor
+// apenas llega y el servidor los junta por sesión.
 
 import type { MetaClientConfig } from "@/lib/channels/types";
 
@@ -32,11 +36,11 @@ export function loadFacebookSdk(config: MetaClientConfig): Promise<FBStatic> {
       return;
     }
     window.fbAsyncInit = () => {
-      window.FB!.init({ appId: config.appId!, autoLogAppEvents: true, xfbml: false, version: config.graphVersion });
+      window.FB!.init({ appId: config.appId!, autoLogAppEvents: true, xfbml: true, version: config.graphVersion });
       resolve(window.FB!);
     };
     const script = document.createElement("script");
-    script.src = "https://connect.facebook.net/es_LA/sdk.js";
+    script.src = "https://connect.facebook.net/en_US/sdk.js";
     script.async = true;
     script.defer = true;
     script.crossOrigin = "anonymous";
@@ -67,45 +71,53 @@ const isFacebookOrigin = (origin: string) => {
   }
 };
 
-export interface EmbeddedSignupResult {
-  code: string;
-  wabaId: string;
-  phoneNumberId: string;
+export interface EmbeddedSignupHandlers {
+  // Callback de FB.login: hay que mandarlo ya (vence a los 30 s)
+  onCode: (code: string) => void;
+  // Cada mensaje WA_EMBEDDED_SIGNUP, tal cual lo mandó Meta
+  onEvent: (event: unknown) => void;
 }
 
-// Embedded Signup: el popup de Meta avisa por postMessage qué WABA y número eligió la
-// persona, y el login devuelve el código. Hacen falta las dos cosas.
-export async function runEmbeddedSignup(config: MetaClientConfig): Promise<EmbeddedSignupResult | "cancel"> {
+// Cuánto se sigue escuchando el postMessage después del callback de FB.login.
+const LISTEN_AFTER_LOGIN_MS = 15_000;
+
+// Lanza el Embedded Signup. Resuelve cuando se cierra el popup: con el code, o null si
+// no hubo (canceló o lo cerró). Los eventos se siguen reenviando un rato después.
+// Abre Meta directo en el flujo de coexistencia (número que ya está en la app de WhatsApp Business).
+const COEXISTENCE_FEATURE = "whatsapp_business_app_onboarding";
+
+export async function launchEmbeddedSignup(
+  config: MetaClientConfig,
+  handlers: EmbeddedSignupHandlers,
+  { coexistence = false }: { coexistence?: boolean } = {}
+): Promise<string | null> {
   const fb = await loadFacebookSdk(config);
-  let session: { wabaId: string; phoneNumberId: string } | null = null;
-  let cancelled = false;
   const onMessage = (event: MessageEvent) => {
     if (!isFacebookOrigin(event.origin)) return;
-    try {
-      const data = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-      if (data?.type !== "WA_EMBEDDED_SIGNUP") return;
-      if (data.event === "FINISH" && data.data?.waba_id && data.data?.phone_number_id) {
-        session = { wabaId: String(data.data.waba_id), phoneNumberId: String(data.data.phone_number_id) };
-      } else if (data.event === "CANCEL") {
-        cancelled = true;
+    let data: unknown = event.data;
+    if (typeof data === "string") {
+      try {
+        data = JSON.parse(data);
+      } catch {
+        return; // mensajes de Facebook que no son JSON
       }
-    } catch {
-      // Mensajes de Facebook que no son del Embedded Signup.
     }
+    if ((data as { type?: unknown } | null)?.type !== "WA_EMBEDDED_SIGNUP") return;
+    handlers.onEvent(data);
   };
   window.addEventListener("message", onMessage);
   try {
     const code = await login(fb, {
       config_id: config.whatsappConfigId,
-      extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
+      extras: {
+        version: config.whatsappEsVersion,
+        ...(coexistence ? { featureType: COEXISTENCE_FEATURE } : {}),
+      },
     });
-    // El postMessage puede llegar un instante después del callback del login.
-    for (let i = 0; i < 20 && !session && !cancelled && code; i++) await new Promise((r) => setTimeout(r, 150));
-    const finished = session as { wabaId: string; phoneNumberId: string } | null;
-    if (!code || !finished) return "cancel";
-    return { code, ...finished };
+    if (code) handlers.onCode(code);
+    return code;
   } finally {
-    window.removeEventListener("message", onMessage);
+    setTimeout(() => window.removeEventListener("message", onMessage), LISTEN_AFTER_LOGIN_MS);
   }
 }
 

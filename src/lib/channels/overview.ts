@@ -9,13 +9,17 @@ import { listEnvSocialAccounts } from "../meta-social/accounts";
 import { defaultAccountId, getConnectionForAccount, listWhatsAppConnections } from "../whatsapp-connections";
 import { metaClientConfig, providerAvailability } from "./config";
 import type { ChannelsRepo } from "./repo";
-import { socialAccountView, whatsappAccountView } from "./service";
+import { whatsappAccountView } from "../whatsapp-accounts/onboarding";
+import type { WaRepo } from "../whatsapp-accounts/repo";
+import { getWaDeps } from "../whatsapp-accounts/runtime";
+import { socialAccountView } from "./service";
 import type { ChannelsOverview, ConnectedAccount, ProviderId } from "./types";
 
 const ENV_PROVIDER: Record<"fb" | "ig" | "th", ProviderId> = { fb: "facebook", ig: "instagram", th: "threads" };
 
-export async function channelsOverview(repo: ChannelsRepo, accountId: number): Promise<ChannelsOverview> {
-  const [whatsapp, social] = await Promise.all([repo.listWhatsApp(accountId), repo.listSocial(accountId)]);
+export async function channelsOverview(repo: ChannelsRepo, accountId: number, waRepo?: WaRepo): Promise<ChannelsOverview> {
+  const wa = waRepo ?? (await getWaDeps()).repo;
+  const [whatsapp, social] = await Promise.all([wa.listByAccount(accountId), repo.listSocial(accountId)]);
   const accounts: ConnectedAccount[] = [...whatsapp.map(whatsappAccountView), ...social.map(socialAccountView)];
 
   // Conexiones de WhatsApp anteriores al Embedded Signup (sin número guardado) o de las variables.

@@ -105,7 +105,7 @@ export class MemoryInboxStore implements InboxStore {
 
   async recordActivity(
     conversationId: number,
-    activity: { preview: string; at: number; inbound: boolean; author?: ActivityAuthor }
+    activity: { preview: string; at: number; inbound: boolean; author?: ActivityAuthor; historical?: boolean }
   ) {
     const c = this.conversations.find((x) => x.id === conversationId);
     if (!c) return;
@@ -116,6 +116,8 @@ export class MemoryInboxStore implements InboxStore {
     }
     if (activity.inbound) {
       if (c.lastInboundAt === null || activity.at > c.lastInboundAt) c.lastInboundAt = activity.at;
+    }
+    if (activity.inbound && !activity.historical) {
       c.unreadCount += 1;
       if (c.status === "resolved") {
         c.sessionCount += 1;

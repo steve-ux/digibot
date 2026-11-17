@@ -253,7 +253,7 @@ export class MySqlInboxStore implements InboxStore {
 
   async recordActivity(
     conversationId: number,
-    activity: { preview: string; at: number; inbound: boolean; author?: ActivityAuthor }
+    activity: { preview: string; at: number; inbound: boolean; author?: ActivityAuthor; historical?: boolean }
   ) {
     // MySQL evalúa los SET de izquierda a derecha con los valores ya actualizados:
     // el preview tiene que ir antes que last_message_at para comparar contra el valor viejo.
@@ -261,13 +261,17 @@ export class MySqlInboxStore implements InboxStore {
     const isNewer = "(last_message_at IS NULL OR FROM_UNIXTIME(?) >= last_message_at)";
     // Si el cliente escribe sobre una conversación resuelta, se reabre sola (y cuenta
     // como una conversación nueva del contacto): session_count va antes que status.
-    const inboundSql = activity.inbound
-      ? `, last_inbound_at = IF(last_inbound_at IS NULL OR FROM_UNIXTIME(?) > last_inbound_at, FROM_UNIXTIME(?), last_inbound_at),
+    const lastInboundSql = `, last_inbound_at = IF(last_inbound_at IS NULL OR FROM_UNIXTIME(?) > last_inbound_at, FROM_UNIXTIME(?), last_inbound_at)`;
+    // El historial de la app de WhatsApp Business no suma no leídos ni reabre la conversación.
+    const inboundSql = !activity.inbound
+      ? ""
+      : activity.historical
+      ? lastInboundSql
+      : `${lastInboundSql},
          unread_count = unread_count + 1,
          session_count = session_count + IF(status = 'resolved', 1, 0),
          status = 'open',
-         resolved_at = NULL`
-      : "";
+         resolved_at = NULL`;
     const author: ActivityAuthor = activity.author ?? (activity.inbound ? "customer" : "agent");
     const params: unknown[] = [
       activity.at,

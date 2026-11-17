@@ -5,7 +5,6 @@ import { seal, unseal } from "@/lib/channels/seal";
 import {
   completeThreads,
   connectFacebookPages,
-  connectWhatsApp,
   disconnectChannel,
   listFacebookPages,
   refreshExpiringThreads,
@@ -65,51 +64,9 @@ describe("disponibilidad", () => {
     vi.stubEnv("META_WA_CONFIG_ID", "");
     vi.stubEnv("THREADS_APP_SECRET", "");
     const a = providerAvailability();
-    expect(a.whatsapp).toMatchObject({ available: false, reason: expect.stringContaining("Tech Provider") });
+    expect(a.whatsapp).toMatchObject({ available: false, reason: expect.stringContaining("no está habilitada") });
     expect(a.facebook.available).toBe(true);
     expect(a.threads.available).toBe(false);
-  });
-});
-
-describe("WhatsApp (Embedded Signup)", () => {
-  const body = { code: "codigo", wabaId: "100200300", phoneNumberId: "555666777" };
-
-  it("cambia el código, suscribe la app, registra el número y lo guarda en la cuenta", async () => {
-    mockMeta([
-      [/GET .*oauth\/access_token/, { access_token: "tok-negocio" }],
-      [/POST .*100200300\/subscribed_apps/, { success: true }],
-      [/POST .*555666777\/register/, { success: true }],
-      [/GET .*555666777\?fields/, { display_phone_number: "+54 9 261 555-0100", verified_name: "Óptica Sol" }],
-    ]);
-    const account = await connectWhatsApp(repo, CTX, body);
-    expect(account).toMatchObject({ provider: "whatsapp", title: "+54 9 261 555-0100", subtitle: "Óptica Sol" });
-    expect(repo.whatsapp[0]).toMatchObject({ accountId: 1, accessToken: "tok-negocio", wabaId: "100200300" });
-    // El secreto de la app va al cambiar el código y nunca en un body hacia el navegador.
-    expect(calls[0].url).toContain("client_secret=secreto");
-    expect(JSON.parse(calls.find((c) => c.url.includes("/register"))!.body!)).toMatchObject({ pin: expect.stringMatching(/^\d{6}$/) });
-  });
-
-  it("si el número ya estaba registrado, sigue igual", async () => {
-    mockMeta([
-      [/oauth\/access_token/, { access_token: "tok" }],
-      [/subscribed_apps/, { success: true }],
-      [/register/, { error: { message: "already registered" } }, 400],
-      [/fields=display/, { display_phone_number: "+1 555" }],
-    ]);
-    await expect(connectWhatsApp(repo, CTX, body)).resolves.toMatchObject({ title: "+1 555" });
-  });
-
-  it("un número no puede estar en dos cuentas", async () => {
-    await repo.saveWhatsApp({ accountId: 2, wabaId: "1", phoneNumberId: "555666777", displayPhoneNumber: null, verifiedName: null, accessToken: "x", connectedBy: null, pin: null });
-    mockMeta([]);
-    await expect(connectWhatsApp(repo, CTX, body)).rejects.toMatchObject({ httpStatus: 409 });
-    expect(calls).toHaveLength(0); // ni siquiera se llamó a Meta
-  });
-
-  it("valida lo que manda el navegador y traduce los errores de Meta", async () => {
-    await expect(connectWhatsApp(repo, CTX, { code: "x", wabaId: "abc", phoneNumberId: "1" })).rejects.toMatchObject({ httpStatus: 400 });
-    mockMeta([[/oauth\/access_token/, { error: { message: "Invalid verification code format." } }, 400]]);
-    await expect(connectWhatsApp(repo, CTX, body)).rejects.toThrow("Meta no aceptó la autorización");
   });
 });
 

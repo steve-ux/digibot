@@ -12,6 +12,7 @@ import { getTeam } from "@/lib/crm/session";
 import { getMySqlSettingsRepo } from "@/lib/crm/settings-mysql";
 import { isDbConfigured } from "@/lib/db";
 import { getInboxStore } from "@/lib/wa-inbox/store";
+import { withChannelHealth } from "@/lib/whatsapp-connections";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ async function loadInitialState(accountId: number): Promise<BandejaLoadState> {
   }
   try {
     const store = await getInboxStore();
-    return { kind: "ready", conversations: await store.listConversations(accountId, 500) };
+    return { kind: "ready", conversations: await withChannelHealth(accountId, await store.listConversations(accountId, 500)) };
   } catch (err) {
     console.error("[crm] No se pudieron listar las conversaciones:", err);
     return { kind: "error", message: "No se pudieron cargar las conversaciones." };

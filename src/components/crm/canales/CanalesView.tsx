@@ -15,7 +15,8 @@ import {
 } from "@/lib/channels/types";
 import { avatarColor, CHANNELS, initialsOf } from "@/lib/crm/channels";
 import { accountApi } from "@/lib/crm/permissions";
-import { runEmbeddedSignup, runFacebookLogin } from "./facebook-sdk";
+import { loadFacebookSdk, runFacebookLogin } from "./facebook-sdk";
+import WhatsAppSignupModal, { WA_MODES, type SignupRequest, type WaMode, type WaModeOption } from "./WhatsAppSignup";
 
 export type ChannelsLoadState = { kind: "ready"; overview: ChannelsOverview } | { kind: "error"; message: string };
 
@@ -104,7 +105,7 @@ function demoOverview(): ChannelsOverview {
       { key: "demo:fb", provider: "facebook", title: "Óptica Sol", subtitle: "Messenger y comentarios de la página", pictureUrl: null, connectedAt: now - 20 * 86400, expiresAt: null, fromEnv: false },
     ],
     availability: { whatsapp: available, facebook: available, instagram: available, threads: available },
-    meta: { appId: null, graphVersion: "v23.0", whatsappConfigId: null, loginConfigId: null },
+    meta: { appId: null, graphVersion: "v23.0", whatsappConfigId: null, whatsappEsVersion: "v5", loginConfigId: null },
   };
 }
 
@@ -117,12 +118,27 @@ const DEMO_NEW: Record<ProviderId, Omit<ConnectedAccount, "key" | "connectedAt">
 
 // ---------- Vista ----------
 
-export default function CanalesView(props: { accountId: number; initialState: ChannelsLoadState }) {
+export default function CanalesView(props: {
+  accountId: number;
+  initialState: ChannelsLoadState;
+  // Sesión de Embedded Signup creada al abrir la página
+  initialSignupSessionId: string | null;
+}) {
   const { demo } = useCrmShell();
   return <Canales key={demo ? "demo" : "real"} {...props} demo={demo} />;
 }
 
-function Canales({ accountId, initialState, demo }: { accountId: number; initialState: ChannelsLoadState; demo: boolean }) {
+function Canales({
+  accountId,
+  initialState,
+  initialSignupSessionId,
+  demo,
+}: {
+  accountId: number;
+  initialState: ChannelsLoadState;
+  initialSignupSessionId: string | null;
+  demo: boolean;
+}) {
   const toast = useToast();
   const [overview, setOverview] = useState<ChannelsOverview | null>(
     demo ? demoOverview() : initialState.kind === "ready" ? initialState.overview : null
@@ -131,6 +147,15 @@ function Canales({ accountId, initialState, demo }: { accountId: number; initial
   const [picker, setPicker] = useState<{ provider: ProviderId; pages: PageChoice[]; selection: string } | null>(null);
   const [toRemove, setToRemove] = useState<ConnectedAccount | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [signup, setSignup] = useState<SignupRequest | null>(null);
+
+  // El SDK se precarga: FB.login tiene que salir directo del click (si no, el navegador bloquea el popup).
+  const sdkConfig = overview?.meta;
+  const waAvailable = overview?.availability.whatsapp.available ?? false;
+  useEffect(() => {
+    if (demo || !sdkConfig?.appId || !waAvailable) return;
+    loadFacebookSdk(sdkConfig).catch(() => undefined);
+  }, [demo, sdkConfig, waAvailable]);
 
   // Vuelta de Threads: ?conectado=@usuario o ?error=...
   useEffect(() => {
@@ -165,39 +190,29 @@ function Canales({ accountId, initialState, demo }: { accountId: number; initial
     toast(`${DEMO_NEW[provider].title} conectado (demo)`);
   };
 
-  const connect = async (provider: ProviderId) => {
+  const connect = async (provider: ProviderId, mode: WaMode = "new") => {
     if (!overview) return;
     if (demo) return demoConnect(provider);
     if (provider === "threads") {
       window.location.href = accountApi(accountId, "canales/threads");
       return;
     }
+    if (provider === "whatsapp") {
+      setSignup({ key: Date.now(), reconnectId: null, mode });
+      return;
+    }
     setBusy(provider);
     try {
-      if (provider === "whatsapp") {
-        const result = await runEmbeddedSignup(overview.meta);
-        if (result === "cancel") {
-          toast("Se canceló la conexión. Cuando quieras, probá de nuevo.");
-          return;
-        }
-        const { account } = await call<{ account: ConnectedAccount | null }>(accountApi(accountId, "canales/whatsapp"), {
-          method: "POST",
-          body: JSON.stringify(result),
-        });
-        toast(account ? `Listo: ${account.title} conectado` : "WhatsApp conectado");
-        await reload();
-      } else {
-        const code = await runFacebookLogin(overview.meta);
-        if (!code) {
-          toast("Se canceló la conexión. Cuando quieras, probá de nuevo.");
-          return;
-        }
-        const data = await call<{ pages: PageChoice[]; selection: string }>(accountApi(accountId, "canales/facebook/paginas"), {
-          method: "POST",
-          body: JSON.stringify({ code }),
-        });
-        setPicker({ provider, ...data });
+      const code = await runFacebookLogin(overview.meta);
+      if (!code) {
+        toast("Se canceló la conexión. Cuando quieras, probá de nuevo.");
+        return;
       }
+      const data = await call<{ pages: PageChoice[]; selection: string }>(accountApi(accountId, "canales/facebook/paginas"), {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+      setPicker({ provider, ...data });
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
@@ -244,12 +259,38 @@ function Canales({ accountId, initialState, demo }: { accountId: number; initial
               disabled={busy !== null}
               onConnect={() => connect(p.id)}
               onRemove={setToRemove}
+              modes={p.id === "whatsapp" ? WA_MODES : undefined}
+              onPickMode={(mode) => connect(p.id, mode)}
+              onReconnect={
+                p.id === "whatsapp" && !demo
+                  ? (a) =>
+                      setSignup({
+                        key: Date.now(),
+                        reconnectId: Number(a.key.replace(/^wa:/, "")),
+                        // Se reconecta con la misma modalidad con la que se conectó
+                        mode: a.coexistence ? "coexistence" : "new",
+                      })
+                  : undefined
+              }
             />
           ))}
           {COMING_SOON.map((c) => (
             <SoonCard key={c.id} channel={c} />
           ))}
         </div>
+      )}
+
+      {overview && (
+        <WhatsAppSignupModal
+          accountId={accountId}
+          meta={overview.meta}
+          initialSessionId={initialSignupSessionId}
+          request={signup}
+          onClose={() => {
+            setSignup(null);
+            void reload();
+          }}
+        />
       )}
 
       <PagePicker
@@ -302,6 +343,9 @@ function ProviderCard({
   disabled,
   onConnect,
   onRemove,
+  modes,
+  onPickMode,
+  onReconnect,
 }: {
   provider: (typeof PROVIDERS)[number];
   accounts: ConnectedAccount[];
@@ -310,12 +354,19 @@ function ProviderCard({
   disabled: boolean;
   onConnect: () => void;
   onRemove: (a: ConnectedAccount) => void;
+  // WhatsApp: las dos formas de conectar, para elegir antes de abrir Meta
+  modes?: WaModeOption[];
+  onPickMode?: (mode: WaMode) => void;
+  // Volver a lanzar la conexión sobre la misma cuenta (WhatsApp desconectado)
+  onReconnect?: (a: ConnectedAccount) => void;
 }) {
   const connected = accounts.length > 0;
+  const down = accounts.filter((a) => a.health === "disconnected").length;
   return (
     <article
       aria-labelledby={`prov-${provider.id}`}
-      className="flex flex-col gap-3.5 rounded-card border border-crm-border bg-crm-card p-[22px]"
+      // WhatsApp ocupa todo el ancho: las dos opciones van lado a lado.
+      className={`flex flex-col gap-3.5 rounded-card border border-crm-border bg-crm-card p-[22px] ${modes ? "[grid-column:1/-1]" : ""}`}
     >
       <div className="flex items-center gap-3">
         <img src={provider.icon} alt="" width={40} height={40} className="block h-10 w-10 shrink-0 object-contain" />
@@ -323,10 +374,17 @@ function ProviderCard({
           <h2 id={`prov-${provider.id}`} className="m-0 font-poppins text-base font-semibold text-crm-ink">
             {provider.name}
           </h2>
-          <div className={`flex items-center gap-1.5 text-[13px] font-semibold ${connected ? "text-crm-success-ink" : "text-crm-muted"}`}>
-            <span aria-hidden className={`h-[7px] w-[7px] rounded-full ${connected ? "bg-crm-success" : "bg-crm-subtle"}`} />
-            {connected ? (accounts.length > 1 ? `${accounts.length} conectadas` : "Conectado") : "Sin conectar"}
-          </div>
+          {down > 0 ? (
+            <div className="flex items-center gap-1.5 text-[13px] font-semibold text-crm-error">
+              <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-crm-error" />
+              {down === accounts.length ? "Desconectado" : `${down} desconectado${down > 1 ? "s" : ""}`}
+            </div>
+          ) : (
+            <div className={`flex items-center gap-1.5 text-[13px] font-semibold ${connected ? "text-crm-success-ink" : "text-crm-muted"}`}>
+              <span aria-hidden className={`h-[7px] w-[7px] rounded-full ${connected ? "bg-crm-success" : "bg-crm-subtle"}`} />
+              {connected ? (accounts.length > 1 ? `${accounts.length} conectadas` : "Conectado") : "Sin conectar"}
+            </div>
+          )}
         </div>
       </div>
 
@@ -365,13 +423,32 @@ function ProviderCard({
               )}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-crm-ink">{a.title}</div>
-                {(a.subtitle || a.expiresAt) && (
+                {(a.subtitle || a.expiresAt || a.coexistence) && (
                   <div className="truncate text-xs text-crm-muted">
                     {a.subtitle}
+                    {a.coexistence ? `${a.subtitle ? " · " : ""}también en la app de WhatsApp Business` : ""}
                     {a.expiresAt ? `${a.subtitle ? " · " : ""}se renueva solo (vence ${formatDate(a.expiresAt)})` : ""}
                   </div>
                 )}
+                {typeof a.syncProgress === "number" && a.health !== "disconnected" && (
+                  <div className="text-xs font-semibold text-crm-primary">Sincronizando historial · {a.syncProgress}%</div>
+                )}
+                {a.health && a.health !== "active" && a.healthMessage && (
+                  <div className={`text-xs font-semibold ${a.health === "disconnected" ? "text-crm-error" : "text-crm-warn-ink"}`}>
+                    {a.health === "disconnected" ? "WhatsApp desconectado. " : ""}
+                    {a.healthMessage}
+                  </div>
+                )}
               </div>
+              {a.health === "disconnected" && onReconnect && (
+                <button
+                  onClick={() => onReconnect(a)}
+                  disabled={disabled}
+                  className="min-h-[36px] shrink-0 rounded-pill bg-crm-primary px-3.5 text-[13px] font-semibold text-white hover:bg-crm-primary-hover disabled:opacity-60"
+                >
+                  Reconectar
+                </button>
+              )}
               {a.fromEnv ? (
                 <span className="shrink-0 text-xs font-semibold text-crm-muted" title="Lo configuró el equipo de DigiBot en el servidor">
                   Por DigiBot
@@ -389,7 +466,9 @@ function ProviderCard({
         </ul>
       )}
 
-      {availability.available ? (
+      {availability.available && modes && onPickMode ? (
+        <ModePicker modes={modes} connected={connected} disabled={disabled} onPick={onPickMode} />
+      ) : availability.available ? (
         <button
           onClick={onConnect}
           disabled={disabled}
@@ -414,6 +493,66 @@ function ProviderCard({
         </div>
       )}
     </article>
+  );
+}
+
+// WhatsApp: dos formas de conectar que son cosas distintas. Se elige antes de abrir Meta.
+function ModePicker({
+  modes,
+  connected,
+  disabled,
+  onPick,
+}: {
+  modes: WaModeOption[];
+  connected: boolean;
+  disabled: boolean;
+  onPick: (mode: WaMode) => void;
+}) {
+  return (
+    <section aria-labelledby="wa-modes" className="flex flex-col gap-3">
+      <div>
+        <h3 id="wa-modes" className="m-0 font-poppins text-[15px] font-semibold text-crm-ink">
+          {connected ? "Conectar otro número" : "¿Qué número vas a conectar?"}
+        </h3>
+        <p className="m-0 mt-0.5 text-[13px] text-crm-muted">Elegí una opción. Si tenés dudas, escribinos y lo hacemos juntos.</p>
+      </div>
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+        {modes.map((m) => (
+          <div
+            key={m.mode}
+            className="flex flex-col gap-3 rounded-[16px] border border-crm-border-2 bg-crm-card p-4 transition-colors hover:border-crm-primary"
+          >
+            <div className="flex items-start gap-3">
+              <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-crm-surf text-crm-primary">
+                <Icon name={m.icon} size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h4 className="m-0 font-poppins text-[15px] font-semibold text-crm-ink">{m.title}</h4>
+                <span className="mt-1 inline-block rounded-pill bg-crm-surf px-2 py-[2px] text-[11px] font-semibold text-crm-ink-2">
+                  {m.tag}
+                </span>
+              </div>
+            </div>
+            <p className="m-0 text-[13px] leading-[1.45] text-crm-ink-2">{m.description}</p>
+            <div className="flex-1 rounded-field bg-crm-surf px-3.5 py-3">
+              <div className="mb-1.5 text-xs font-semibold text-crm-ink-2">Qué necesitás</div>
+              <ul className="m-0 flex list-disc flex-col gap-1 pl-4 text-xs leading-[1.4] text-crm-ink-2">
+                {m.requirements.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={() => onPick(m.mode)}
+              disabled={disabled}
+              className="h-11 rounded-pill bg-crm-primary font-poppins text-sm font-semibold text-white transition-colors hover:bg-crm-primary-hover disabled:opacity-60"
+            >
+              {m.button}
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

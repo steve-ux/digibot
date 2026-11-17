@@ -1,7 +1,8 @@
 // Credenciales de la app de Meta para conectar canales. Server-only.
 //
 //   META_APP_ID, META_APP_SECRET    -> la app de Meta (el secreto ya se usa para los webhooks)
-//   META_WA_CONFIG_ID               -> configuración del Embedded Signup de WhatsApp
+//   META_ES_CONFIG_ID               -> configuración del Embedded Signup de WhatsApp (META_WA_CONFIG_ID también sirve)
+//   WHATSAPP_ES_VERSION             -> versión del Embedded Signup (v5: coexistencia activada por defecto)
 //   META_LOGIN_CONFIG_ID            -> configuración de Facebook Login for Business (páginas e Instagram)
 //   THREADS_APP_ID, THREADS_APP_SECRET -> el producto Threads de la app (tiene id y secreto propios)
 //   APP_URL                          -> https://digibotlatam.com (para el redirect de Threads)
@@ -11,10 +12,13 @@
 import type { MetaClientConfig, ProviderAvailability, ProviderId } from "./types";
 
 export const graphVersion = () => process.env.META_GRAPH_API_VERSION || "v23.0";
+// Versión del Embedded Signup que se pide en extras.version de FB.login.
+export const embeddedSignupVersion = () => process.env.WHATSAPP_ES_VERSION || "v5";
+export const whatsappConfigId = () => process.env.META_ES_CONFIG_ID || process.env.META_WA_CONFIG_ID || null;
 export const threadsVersion = () => process.env.THREADS_API_VERSION || "v1.0";
 
-const PENDING_META =
-  "Disponible cuando Meta apruebe a DigiBot como Tech Provider. Mientras tanto, lo configuramos nosotros.";
+// Falta alguna variable en el servidor (texto para el cliente: no nombra variables).
+const PENDING_META = "Esta conexión todavía no está habilitada. Escribinos y la activamos.";
 
 export function metaAppCredentials() {
   const appId = process.env.META_APP_ID || null;
@@ -32,7 +36,8 @@ export function metaClientConfig(): MetaClientConfig {
   return {
     appId: process.env.META_APP_ID || null,
     graphVersion: graphVersion(),
-    whatsappConfigId: process.env.META_WA_CONFIG_ID || null,
+    whatsappConfigId: whatsappConfigId(),
+    whatsappEsVersion: embeddedSignupVersion(),
     loginConfigId: process.env.META_LOGIN_CONFIG_ID || null,
   };
 }

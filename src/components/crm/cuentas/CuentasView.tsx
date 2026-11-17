@@ -182,16 +182,24 @@ export default function CuentasView({
         title="Cuentas"
         description="Cada negocio que usa DigiBot, con su equipo, canales y conversaciones."
         actions={
-          <button
-            onClick={() => {
-              setErrors({});
-              setAccountForm({ id: null, name: "", status: "active", adminName: "", adminEmail: "" });
-            }}
-            className="flex h-[46px] items-center gap-2 rounded-pill bg-crm-primary px-[22px] font-poppins text-[15px] font-semibold text-white transition-colors hover:bg-crm-primary-hover"
-          >
-            <Icon name="plus" size={18} />
-            Nueva cuenta
-          </button>
+          <div className="flex flex-wrap gap-2.5">
+            <Link
+              href="/admin/cuentas/whatsapp"
+              className="flex h-[46px] items-center rounded-pill border border-crm-border-2 bg-crm-chip px-[22px] font-poppins text-[15px] font-semibold text-crm-ink transition-colors hover:border-crm-primary hover:text-crm-primary"
+            >
+              Cuentas de WhatsApp
+            </Link>
+            <button
+              onClick={() => {
+                setErrors({});
+                setAccountForm({ id: null, name: "", status: "active", adminName: "", adminEmail: "" });
+              }}
+              className="flex h-[46px] items-center gap-2 rounded-pill bg-crm-primary px-[22px] font-poppins text-[15px] font-semibold text-white transition-colors hover:bg-crm-primary-hover"
+            >
+              <Icon name="plus" size={18} />
+              Nueva cuenta
+            </button>
+          </div>
         }
       />
 

@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import Logo from "@/components/Logo";
 import type { ChannelId } from "@/lib/crm/channels";
 import Icon, { type IconName } from "./Icon";
+import NotificationsBar from "./NotificationsBar";
 import { ToastProvider } from "./Toast";
 import UserAvatar from "./UserAvatar";
 import { playSound, unlockAudio } from "./sound-player";
@@ -546,6 +547,7 @@ export default function CrmShell({
             )}
 
             <main id="crm-main" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <NotificationsBar accountId={accountId} disabled={demo} />
               {children}
             </main>
 

@@ -1,25 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { channelsChanged, channelsRepo, connectErrorResponse } from "@/lib/channels/api";
-import { connectWhatsApp } from "@/lib/channels/service";
+import { connectErrorResponse } from "@/lib/channels/api";
 import { notConfigured, requireAccountApi } from "@/lib/crm/api-auth";
+import { isDbConfigured } from "@/lib/db";
+import { createSignupSession } from "@/lib/whatsapp-accounts/onboarding";
 
 export const dynamic = "force-dynamic";
 
-// Fin del Embedded Signup: { code, wabaId, phoneNumberId } (los manda el SDK de Facebook).
+// Nueva sesión de Embedded Signup: { reconnectId? } -> { sessionId }.
+// (La página de Canales ya trae una; esta sirve para el siguiente intento o para "Reconectar".)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ accountId: string }> }) {
   const auth = await requireAccountApi((await params).accountId, "channels");
   if (auth.response) return auth.response;
-  const repo = channelsRepo();
-  if (!repo) return notConfigured();
+  if (!isDbConfigured()) return notConfigured();
+  const body = (await req.json().catch(() => null)) as { reconnectId?: unknown } | null;
   try {
-    const account = await connectWhatsApp(
-      repo,
-      { accountId: auth.accountId, userId: auth.user.id },
-      await req.json().catch(() => null)
-    );
-    channelsChanged();
-    return NextResponse.json({ account }, { status: 201 });
+    const session = await createSignupSession({ accountId: auth.accountId, userId: auth.user.id }, { reconnectId: body?.reconnectId });
+    return NextResponse.json(session, { status: 201 });
   } catch (err) {
-    return connectErrorResponse(err, "No se pudo conectar WhatsApp.");
+    return connectErrorResponse(err, "No se pudo iniciar la conexión de WhatsApp.");
   }
 }

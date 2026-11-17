@@ -3,6 +3,7 @@ import { notConfigured, requireAccountApi } from "@/lib/crm/api-auth";
 import { canUseChannel } from "@/lib/crm/permissions";
 import { isDbConfigured } from "@/lib/db";
 import { getInboxStore } from "@/lib/wa-inbox/store";
+import { withChannelHealth } from "@/lib/whatsapp-connections";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +18,9 @@ export async function GET(_req: Request, { params }: Params) {
   try {
     const store = await getInboxStore();
     // Los agentes solo reciben las conversaciones de sus canales.
-    const conversations = (await store.listConversations(auth.accountId, 500)).filter((c) =>
-      canUseChannel(auth.user, c.channel)
+    const conversations = await withChannelHealth(
+      auth.accountId,
+      (await store.listConversations(auth.accountId, 500)).filter((c) => canUseChannel(auth.user, c.channel))
     );
     return NextResponse.json({ accountId: auth.accountId, conversations });
   } catch (err) {

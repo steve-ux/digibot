@@ -26,6 +26,12 @@ export interface ConnectedAccount {
   expiresAt: number | null;
   // Configurada con variables del servidor: no se desconecta desde el panel
   fromEnv: boolean;
+  // Solo WhatsApp: si la conexión funciona y por qué no
+  health?: "active" | "needs_attention" | "disconnected";
+  healthMessage?: string | null;
+  coexistence?: boolean;
+  // Sincronización del historial con la app de WhatsApp Business (0-100), mientras corre
+  syncProgress?: number | null;
 }
 
 export interface ProviderAvailability {
@@ -39,6 +45,8 @@ export interface MetaClientConfig {
   appId: string | null;
   graphVersion: string;
   whatsappConfigId: string | null;
+  // extras.version del Embedded Signup (v5)
+  whatsappEsVersion: string;
   loginConfigId: string | null;
 }
 

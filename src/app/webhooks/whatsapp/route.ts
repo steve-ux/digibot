@@ -45,7 +45,12 @@ export async function POST(req: Request) {
   // Se procesa antes de responder (son unas pocas queries). Si falla, se devuelve
   // 500 para que Meta reintente; la idempotencia por wamid evita duplicados.
   try {
-    await processWebhookPayload(payload);
+    const result = await processWebhookPayload(payload);
+    // history / smb_app_state_sync quedaron en la cola: se procesan en segundo plano.
+    if (result?.queued) {
+      const { kickWebhookJobs } = await import("@/lib/whatsapp-accounts/scheduler");
+      kickWebhookJobs();
+    }
   } catch (err) {
     console.error("[wa-webhook] Error procesando el webhook:", err);
     return new Response("Error", { status: 500 });

@@ -84,9 +84,10 @@ export interface InboxStore {
   listConversations(accountId: number, limit: number): Promise<InboxConversation[]>;
   // Actualiza preview/hora/autor del último mensaje; si es entrante, también
   // last_inbound_at y no leídos, y reabre la conversación si estaba resuelta.
+  // historical (historial de la app de WhatsApp Business): solo last_inbound_at, sin no leídos ni reabrir.
   recordActivity(
     conversationId: number,
-    activity: { preview: string; at: number; inbound: boolean; author?: ActivityAuthor }
+    activity: { preview: string; at: number; inbound: boolean; author?: ActivityAuthor; historical?: boolean }
   ): Promise<void>;
   markConversationRead(id: number): Promise<void>;
   updateConversation(id: number, patch: ConversationPatch): Promise<void>;
