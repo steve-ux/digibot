@@ -283,6 +283,22 @@ describe("resolveSessionUser", () => {
     expect(await resolveSessionUser(payloadOf(sa), repo, accounts)).toMatchObject({ role: "superadmin" });
   });
 
+  it("suspendida por falta de pago: solo el admin entra, y solo a pagar", async () => {
+    const admin = await activeUser("admin@x.com", "admin");
+    const agent = await activeUser("sofia@x.com", "agent");
+    await accounts.update(ACC, { status: "suspended" });
+    const byBilling = async () => true;
+    expect(await resolveSessionUser(payloadOf(admin), repo, accounts, byBilling)).toMatchObject({ role: "admin", billingLocked: true });
+    expect(await resolveSessionUser(payloadOf(agent), repo, accounts, byBilling)).toBeNull();
+    // Suspendida a mano por el equipo: no entra nadie de la cuenta.
+    expect(await resolveSessionUser(payloadOf(admin), repo, accounts, async () => false)).toBeNull();
+    // Una cuenta bloqueada solo ve Suscripción.
+    expect(homePath({ role: "admin", accountId: ACC, billingLocked: true })).toBe(`/admin/cuentas/${ACC}/configuracion?tab=suscripcion`);
+    // Activa: nunca queda bloqueada.
+    await accounts.update(ACC, { status: "active" });
+    expect((await resolveSessionUser(payloadOf(admin), repo, accounts, byBilling))?.billingLocked).toBeUndefined();
+  });
+
   it("el acceso inicial es superadmin y solo vale mientras no haya superadmins activos", async () => {
     const bootstrap = { uid: 0, role: "superadmin" as const, acc: null, ver: 0, exp: Date.now() + 1e6 };
     expect(await resolveSessionUser(bootstrap, repo, accounts)).toMatchObject({ id: 0, bootstrap: true, role: "superadmin" });

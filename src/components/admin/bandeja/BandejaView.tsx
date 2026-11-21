@@ -6,7 +6,7 @@ import { Sheet } from "@/components/crm/Modal";
 import { useToast } from "@/components/crm/Toast";
 import { getDemoSettings } from "@/components/crm/demo-settings";
 import type { AttributeValues, CustomAttribute } from "@/lib/crm/attributes";
-import { CHANNEL_IDS, type ChannelId } from "@/lib/crm/channels";
+import { CHANNEL_IDS, tiktokDemoEnabled, type ChannelId } from "@/lib/crm/channels";
 import type { ConversationAction } from "@/lib/crm/conversation-actions";
 import type { Label } from "@/lib/crm/labels";
 import { accountPath } from "@/lib/crm/permissions";
@@ -83,13 +83,18 @@ function Bandeja({
   attributes: realAttributes,
   demo,
 }: Props & { demo: boolean }) {
-  const { reportInboxUnread, setImmersive, setDemo, playIncoming, sounds } = useCrmShell();
+  const { reportInboxUnread, setImmersive, setDemo, playIncoming, sounds, user } = useCrmShell();
+  // Prototipo de TikTok: solo superadmin en demo (para el video de revisión de TikTok).
+  const tiktok = tiktokDemoEnabled(demo, user.role);
   // Lo último que trajo el polling, para detectar mensajes nuevos de clientes (sonido).
   const lastPolled = useRef<InboxConversation[] | null>(null);
   const soundsOn = useRef(sounds.enabled);
   soundsOn.current = sounds.enabled;
   const toast = useToast();
-  const api: InboxApi = useMemo(() => (demo ? getDemoApi(me, accountId) : getRealApi(accountId)), [demo, me, accountId]);
+  const api: InboxApi = useMemo(
+    () => (demo ? getDemoApi(me, accountId, tiktok) : getRealApi(accountId)),
+    [demo, me, accountId, tiktok]
+  );
   const team = useMemo(() => (demo ? demoTeam(me) : realTeam), [demo, me, realTeam]);
   const [settings, setSettings] = useState({ labels: realLabels, attributes: realAttributes });
 
@@ -401,7 +406,7 @@ function Bandeja({
           onOpen={open}
           banner={banner}
           empty={listEmpty}
-          channels={demo ? CHANNEL_IDS : allowedChannels}
+          channels={demo ? (tiktok ? [...CHANNEL_IDS, "ttm", "ttc"] : CHANNEL_IDS) : allowedChannels}
         />
       </section>
 

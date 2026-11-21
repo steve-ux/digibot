@@ -3,7 +3,11 @@
 //   META_APP_ID, META_APP_SECRET    -> la app de Meta (el secreto ya se usa para los webhooks)
 //   META_ES_CONFIG_ID               -> configuración del Embedded Signup de WhatsApp (META_WA_CONFIG_ID también sirve)
 //   WHATSAPP_ES_VERSION             -> versión del Embedded Signup (v5: coexistencia activada por defecto)
-//   META_LOGIN_CONFIG_ID            -> configuración de Facebook Login for Business (páginas e Instagram)
+//   META_FB_IG_CONFIG_ID            -> Facebook Login for Business para páginas (Messenger + comentarios).
+//                                      META_LOGIN_CONFIG_ID también sirve (nombre anterior)
+//   META_IG_CONFIG_ID               -> Facebook Login for Business de Instagram API with Unified Login
+//   META_HUMAN_AGENT_ENABLED        -> on: Messenger/Instagram de 24 h a 7 días con la etiqueta HUMAN_AGENT
+//                                      (requiere el permiso aprobado). Apagado por defecto.
 //   THREADS_APP_ID, THREADS_APP_SECRET -> el producto Threads de la app (tiene id y secreto propios)
 //   APP_URL                          -> https://digibotlatam.com (para el redirect de Threads)
 //
@@ -16,6 +20,9 @@ export const graphVersion = () => process.env.META_GRAPH_API_VERSION || "v23.0";
 export const embeddedSignupVersion = () => process.env.WHATSAPP_ES_VERSION || "v5";
 export const whatsappConfigId = () => process.env.META_ES_CONFIG_ID || process.env.META_WA_CONFIG_ID || null;
 export const threadsVersion = () => process.env.THREADS_API_VERSION || "v1.0";
+export const facebookConfigId = () => process.env.META_FB_IG_CONFIG_ID || process.env.META_LOGIN_CONFIG_ID || null;
+export const instagramConfigId = () => process.env.META_IG_CONFIG_ID || null;
+export const humanAgentEnabled = () => process.env.META_HUMAN_AGENT_ENABLED?.toLowerCase() === "on";
 
 // Falta alguna variable en el servidor (texto para el cliente: no nombra variables).
 const PENDING_META = "Esta conexión todavía no está habilitada. Escribinos y la activamos.";
@@ -38,7 +45,8 @@ export function metaClientConfig(): MetaClientConfig {
     graphVersion: graphVersion(),
     whatsappConfigId: whatsappConfigId(),
     whatsappEsVersion: embeddedSignupVersion(),
-    loginConfigId: process.env.META_LOGIN_CONFIG_ID || null,
+    loginConfigId: facebookConfigId(),
+    instagramConfigId: instagramConfigId(),
   };
 }
 
@@ -50,7 +58,7 @@ export function providerAvailability(): Record<ProviderId, ProviderAvailability>
   return {
     whatsapp: meta && client.whatsappConfigId ? ok : pending,
     facebook: meta && client.loginConfigId ? ok : pending,
-    instagram: meta && client.loginConfigId ? ok : pending,
+    instagram: meta && client.instagramConfigId ? ok : pending,
     threads: threadsAppCredentials() ? ok : pending,
   };
 }

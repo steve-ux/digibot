@@ -3,11 +3,12 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "@/components/crm/Icon";
 import { useToast } from "@/components/crm/Toast";
-import { isCommentChannel } from "@/lib/crm/channels";
+import { isCommentChannel, supportsPrivateReply } from "@/lib/crm/channels";
+import { HUMAN_AGENT_WINDOW_SECONDS } from "@/lib/crm/reply-window";
 import type { InboxConversation, InboxMessage } from "@/lib/wa-inbox/types";
 import type { InboxApi, SendPayload } from "./api";
 import Avatar from "./Avatar";
-import Composer, { type ComposeTarget } from "./Composer";
+import Composer, { type ComposeTarget, type ReplyTarget } from "./Composer";
 import MessageBubble from "./MessageBubble";
 import TemplateModal, { type TemplateSelection } from "./TemplateModal";
 import {
@@ -75,6 +76,9 @@ export default function ChatPanel({
   const [loadError, setLoadError] = useState("");
   const [draft, setDraftState] = useState(drafts.get(cacheKey) ?? "");
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  // Comentarios: el comentario puntual que se está respondiendo (null = el último del cliente)
+  const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
+  useEffect(() => setReplyTo(null), [cacheKey]);
   const lastIdRef = useRef(cached?.reduce((max, m) => Math.max(max, m.id), 0) ?? 0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -190,7 +194,9 @@ export default function ChatPanel({
     }
     const replyMode = target === "public" || target === "private" ? target : undefined;
     const type = replyMode === "public" ? "comment_reply" : replyMode === "private" ? "private_reply" : "text";
-    await sendPayload({ type: "text", body: text, replyMode }, { body: text, type });
+    const commentId = replyMode ? (replyTo?.commentId ?? targetComment?.wamid ?? undefined) : undefined;
+    setReplyTo(null);
+    await sendPayload({ type: "text", body: text, replyMode, commentId }, { body: text, type, inReplyTo: commentId ?? null });
   };
 
   const sendTemplate = async (selection: TemplateSelection) => {
@@ -238,6 +244,30 @@ export default function ChatPanel({
   const isWa = c.channel === "wa";
   const windowOpen = c.windowSecondsLeft > 0;
   const failureActions = { onRetry: retry, onTemplate: () => setTemplatesOpen(true) };
+
+  // ---------- Comentarios ----------
+  const isComments = isCommentChannel(c.channel);
+  const canPrivate = supportsPrivateReply(c.channel);
+  // Por qué no se puede responder por privado un comentario (null = se puede).
+  const privateBlock = (m: UiMessage): string | null => {
+    if (m.deletedAt) return "el comentario fue borrado";
+    const used = messages.some(
+      (x) => x.direction === "out" && x.type === "private_reply" && x.inReplyTo === m.wamid && x.status !== "failed"
+    );
+    if (used) return "Ya le respondiste por privado";
+    if (Math.floor(Date.now() / 1000) - m.messageAt > HUMAN_AGENT_WINDOW_SECONDS) return "pasaron más de 7 días desde el comentario";
+    return null;
+  };
+  const lastComment = [...messages].reverse().find((m) => m.direction === "in" && m.wamid && !m.deletedAt) ?? null;
+  const targetComment = replyTo ? (messages.find((m) => m.wamid === replyTo.commentId) ?? null) : lastComment;
+  const composerPrivateBlocked = !isComments ? null : targetComment ? privateBlock(targetComment) : "no hay comentarios para responder";
+  const commentActionsFor = (m: UiMessage) =>
+    isComments && open && m.author === "customer" && m.wamid
+      ? {
+          onReply: (mode: "public" | "private") => setReplyTo({ commentId: m.wamid!, mode, preview: (m.body ?? "").slice(0, 80) }),
+          privateBlocked: canPrivate ? privateBlock(m) : undefined,
+        }
+      : undefined;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -332,7 +362,11 @@ export default function ChatPanel({
       {isCommentChannel(c.channel) && c.post && (
         <div className="flex shrink-0 items-center gap-3.5 border-b border-crm-border bg-crm-card px-4 py-3 md:px-[22px]">
           {c.post.thumbnailUrl ? (
-            <img src={c.post.thumbnailUrl} alt="Imagen de la publicación" className="h-14 w-14 shrink-0 rounded-[10px] object-cover" />
+            <img
+              src={c.post.thumbnailUrl}
+              alt={c.channel === "ttc" ? "Miniatura del video" : "Imagen de la publicación"}
+              className={`shrink-0 rounded-[10px] object-cover ${c.channel === "ttc" ? "h-16 w-12" : "h-14 w-14"}`}
+            />
           ) : (
             <div
               aria-hidden
@@ -343,10 +377,16 @@ export default function ChatPanel({
           )}
           <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold text-crm-muted">
-              {c.channel === "th" ? "Respondió tu hilo" : "Comentó en tu publicación"}
+              {c.channel === "th" ? "Respondió tu hilo" : c.channel === "ttc" ? "Comentó en tu video de TikTok" : "Comentó en tu publicación"}
             </div>
             <div className="mt-0.5 truncate text-sm text-crm-ink">{c.post.caption || "Publicación sin texto"}</div>
           </div>
+          {c.channel === "ttc" && c.lastMessageAuthor !== null && c.lastMessageAuthor !== "customer" && (
+            <span className="flex shrink-0 items-center gap-1 rounded-pill bg-crm-success-bg px-2.5 py-1 text-xs font-semibold text-crm-success-ink">
+              <Icon name="check" size={14} />
+              Respondido
+            </span>
+          )}
           {(c.post.likes > 0 || c.post.comments > 0) && (
             <div className="hidden shrink-0 text-[13px] text-crm-muted md:block">
               {c.post.likes} {c.channel === "fbc" ? "reacciones" : "me gusta"} · {c.post.comments} comentarios
@@ -400,7 +440,13 @@ export default function ChatPanel({
                   {formatDayLabel(m.messageAt)}
                 </div>
               )}
-              <MessageBubble message={m} channel={c.channel} meName={me.name} actions={failureActions} />
+              <MessageBubble
+                message={m}
+                channel={c.channel}
+                meName={me.name}
+                actions={failureActions}
+                commentActions={commentActionsFor(m)}
+              />
             </Fragment>
           );
         })}
@@ -416,6 +462,9 @@ export default function ChatPanel({
         onTakeOver={actions.takeOver}
         onGiveBack={actions.giveBack}
         onOpenTemplates={() => setTemplatesOpen(true)}
+        replyTarget={replyTo}
+        onClearReplyTarget={() => setReplyTo(null)}
+        privateBlocked={composerPrivateBlocked}
       />
 
       {isWa && (

@@ -180,6 +180,9 @@ export class MemoryInboxStore implements InboxStore {
       errorCode: message.errorCode ?? null,
       errorTitle: message.errorTitle ?? null,
       messageAt: message.messageAt,
+      inReplyTo: message.inReplyTo ?? null,
+      editedAt: null,
+      deletedAt: null,
       rawPayload: message.rawPayload ?? null,
     };
     this.messages.push(stored);
@@ -233,6 +236,27 @@ export class MemoryInboxStore implements InboxStore {
         m.status = "read";
       }
     }
+  }
+
+  async editMessageByWamid(wamid: string, body: string, at: number) {
+    const m = this.messages.find((x) => x.wamid === wamid && x.direction === "in");
+    if (!m) return false;
+    m.body = body;
+    m.editedAt = at;
+    return true;
+  }
+
+  async markDeletedByWamid(wamid: string, at: number) {
+    const m = this.messages.find((x) => x.wamid === wamid);
+    if (!m) return false;
+    m.deletedAt ??= at;
+    return true;
+  }
+
+  async hasPrivateReply(commentId: string) {
+    return this.messages.some(
+      (m) => m.inReplyTo === commentId && m.type === "private_reply" && m.direction === "out" && m.status !== "failed"
+    );
   }
 
   async recentOutboundStatuses(conversationId: number, limit: number) {

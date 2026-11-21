@@ -31,12 +31,20 @@ export async function requireApiUser(section: Section): Promise<ApiAuth> {
 }
 
 // Para todo lo que cuelga de /api/admin/cuentas/:cuenta. Una cuenta ajena da 404.
-export async function requireAccountApi(rawAccountId: string, section: Section): Promise<AccountApiAuth> {
+export async function requireAccountApi(
+  rawAccountId: string,
+  section: Section,
+  // true solo en las APIs de Suscripción (pagar, ver el historial)
+  opts: { allowBillingLocked?: boolean } = {}
+): Promise<AccountApiAuth> {
   const user = await getCurrentUser();
   if (!user) return { response: unauthorized() };
   const accountId = Number(rawAccountId);
   if (!Number.isSafeInteger(accountId) || accountId <= 0 || !canEnterAccount({ role: user.role, acc: user.accountId }, accountId)) {
     return { response: notFound("La cuenta no existe.") };
+  }
+  if (user.billingLocked && !opts.allowBillingLocked) {
+    return { response: NextResponse.json({ error: "account_suspended", message: "La cuenta está suspendida por falta de pago." }, { status: 403 }) };
   }
   if (!canAccess(user.role, section)) return { response: forbidden() };
   return { user, accountId };

@@ -6,8 +6,8 @@ import { Eye } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import StatusBadge from "@/components/admin/StatusBadge";
 import TemplatePreviewModal from "@/components/admin/TemplatePreviewModal";
-import { useAccountId } from "@/components/crm/CrmShell";
-import { accountApi, accountPath } from "@/lib/crm/permissions";
+import { useAccountId, useCrmShell } from "@/components/crm/CrmShell";
+import { accountApi, accountPath, canAccess } from "@/lib/crm/permissions";
 import type { WhatsAppTemplate } from "@/lib/meta-whatsapp";
 
 export type PlantillasLoadState =
@@ -24,6 +24,9 @@ function bodyPreview(template: WhatsAppTemplate) {
 // ve al instante. Después se revalida contra Meta en segundo plano sin tapar nada.
 export default function PlantillasView({ initialState }: { initialState: PlantillasLoadState }) {
   const accountId = useAccountId();
+  const { user } = useCrmShell();
+  // Solo quien puede entrar a Canales ve el botón para ir a conectar WhatsApp.
+  const canConnect = canAccess(user.role, "channels");
   const [state, setState] = useState<PlantillasLoadState>(initialState);
   const [reloading, setReloading] = useState(false);
   const [search, setSearch] = useState("");
@@ -102,12 +105,23 @@ export default function PlantillasView({ initialState }: { initialState: Plantil
             a Meta para su aprobación antes de poder usarse.
           </p>
         </div>
-        <Link
-          href={accountPath(accountId, "plantillas/nueva")}
-          className="rounded-full bg-primary px-6 py-3 font-poppins text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          + Crear nueva plantilla
-        </Link>
+        {state.kind === "not_configured" ? (
+          // Sin WhatsApp conectado no se puede crear: el botón se ve, pero apagado.
+          <span
+            aria-disabled="true"
+            title="Primero conectá WhatsApp desde Canales"
+            className="cursor-not-allowed select-none rounded-full bg-primary px-6 py-3 font-poppins text-sm font-semibold text-primary-foreground opacity-40"
+          >
+            + Crear nueva plantilla
+          </span>
+        ) : (
+          <Link
+            href={accountPath(accountId, "plantillas/nueva")}
+            className="rounded-full bg-primary px-6 py-3 font-poppins text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            + Crear nueva plantilla
+          </Link>
+        )}
       </div>
 
       {state.kind === "not_configured" && (
@@ -116,11 +130,14 @@ export default function PlantillasView({ initialState }: { initialState: Plantil
             Todavía no conectaste una cuenta de WhatsApp Business
           </div>
           <p className="mt-2 text-sm text-muted-foreground">{state.message}</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Configurá <code className="rounded bg-muted px-1.5 py-0.5">WHATSAPP_WABA_ID</code> y{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5">WHATSAPP_ACCESS_TOKEN</code> en las
-            variables de entorno del servidor y recargá esta página.
-          </p>
+          {canConnect && (
+            <Link
+              href={accountPath(accountId, "canales")}
+              className="mt-4 inline-block rounded-full bg-primary px-5 py-2 font-poppins text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Ir a Canales
+            </Link>
+          )}
         </div>
       )}
 

@@ -14,7 +14,7 @@ import type {
 export type ReplyMode = "public" | "private";
 
 export type SendPayload =
-  | { type: "text"; body: string; replyMode?: ReplyMode }
+  | { type: "text"; body: string; replyMode?: ReplyMode; commentId?: string }
   | { type: "template"; name: string; language: string; headerParams: string[]; bodyParams: string[] }
   | { type: "note"; body: string }
   | { type: "retry"; messageId: number };

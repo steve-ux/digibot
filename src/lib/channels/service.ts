@@ -1,13 +1,23 @@
 // Conectar y desconectar canales de una cuenta. Server-only.
 //
 //   WhatsApp   -> Embedded Signup por sesión: ver src/lib/whatsapp-accounts/onboarding.ts
-//   Facebook / Instagram -> Facebook Login for Business: con el código se listan las páginas, la
-//                 persona elige cuáles (y su Instagram) y recién ahí se guardan
+//   Facebook   -> Facebook Login for Business (META_FB_IG_CONFIG_ID): se listan las páginas,
+//                 la persona elige cuáles y recién ahí se guardan
+//   Instagram  -> Instagram API with Unified Login (META_IG_CONFIG_ID): se listan las cuentas
+//                 asignadas al token de usuario del sistema; no hace falta página
 //   Threads    -> OAuth con redirect; el token dura 60 días y se renueva solo
 //
 // Un número / página / perfil no puede estar conectado a dos cuentas de DigiBot a la vez.
 
-import { metaAppCredentials, publicBaseUrl, threadsAppCredentials, THREADS_CALLBACK_PATH, THREADS_SCOPES } from "./config";
+import {
+  facebookConfigId,
+  instagramConfigId,
+  metaAppCredentials,
+  publicBaseUrl,
+  threadsAppCredentials,
+  THREADS_CALLBACK_PATH,
+  THREADS_SCOPES,
+} from "./config";
 import * as meta from "./meta-connect";
 import { ConnectError } from "./meta-connect";
 import { unsubscribeApp } from "../whatsapp-accounts/graph";
@@ -15,7 +25,7 @@ import type { WaRepo } from "../whatsapp-accounts/repo";
 import { getWaDeps } from "../whatsapp-accounts/runtime";
 import type { ChannelsRepo, SocialKind, SocialRecord } from "./repo";
 import { seal, unseal } from "./seal";
-import type { ConnectedAccount, PageChoice, ProviderId } from "./types";
+import type { ConnectedAccount, InstagramChoice, PageChoice, ProviderId } from "./types";
 
 export { ConnectError };
 
@@ -35,9 +45,11 @@ const PROVIDER_OF: Record<SocialKind, ProviderId> = { fb: "facebook", ig: "insta
 export function socialAccountView(s: SocialRecord): ConnectedAccount {
   const subtitle =
     s.channel === "ig"
-      ? s.pageName
-        ? `Vinculado a la página ${s.pageName}`
-        : null
+      ? s.authType === "ig_unified"
+        ? "Mensajes directos y comentarios"
+        : s.pageName
+          ? `Vinculado a la página ${s.pageName}`
+          : null
       : s.channel === "fb"
         ? "Messenger y comentarios de la página"
         : "Respuestas a tus hilos";
@@ -59,120 +71,181 @@ function requireMetaApp() {
   return app;
 }
 
-// ---------- Facebook e Instagram (Login for Business) ----------
+function requireCode(code: unknown, what: string): string {
+  if (typeof code !== "string" || !code) throw new ConnectError(`Falta la autorización de ${what}. Probá de nuevo.`);
+  return code;
+}
+
+// Ids elegidos en el selector (solo strings, sin repetir).
+function pickedIds(choices: unknown): string[] {
+  const ids = (Array.isArray(choices) ? choices : []).filter((c): c is string => typeof c === "string" && c.length > 0);
+  return Array.from(new Set(ids));
+}
+
+async function viewOf(repo: ChannelsRepo, accountId: number, id: number) {
+  const saved = (await repo.listSocial(accountId)).find((s) => s.id === id);
+  return saved ? socialAccountView(saved) : null;
+}
+
+// ---------- Facebook: páginas (Messenger + comentarios) ----------
+//
+// FB.login con META_FB_IG_CONFIG_ID -> code -> token (de usuario del sistema) -> debug_token
+// -> /me/accounts -> la persona elige -> token de página cifrado + subscribed_apps.
 
 interface SealedPage {
   id: string;
   name: string;
   token: string;
   pictureUrl: string | null;
-  instagram: { id: string; username: string; pictureUrl: string | null } | null;
 }
+
+export const FACEBOOK_SCOPES = ["pages_show_list", "pages_messaging", "pages_manage_metadata"];
 
 // Paso 1: con el código del login, las páginas para elegir (los tokens viajan sellados).
 export async function listFacebookPages(repo: ChannelsRepo, ctx: ConnectContext, code: unknown) {
-  if (typeof code !== "string" || !code) throw new ConnectError("Falta la autorización de Facebook. Probá de nuevo.");
   const app = requireMetaApp();
-  const userToken = await meta.longLivedFacebookToken(await meta.exchangeFacebookCode(code, app), app);
-  const pages = await meta.fetchPages(userToken);
+  let token = await meta.exchangeFacebookCode(requireCode(code, "Facebook"), app);
+  const info = await meta.inspectToken(token, app, FACEBOOK_SCOPES);
+  // Con un token de usuario común las páginas heredan su vencimiento: se extiende.
+  if (info.type === "USER") token = await meta.longLivedFacebookToken(token, app);
+  const pages = await meta.fetchPages(token);
   if (pages.length === 0) {
-    throw new ConnectError("No encontramos páginas. Revisá que hayas elegido al menos una página al dar los permisos.", 404);
+    throw new ConnectError(
+      "No encontramos páginas. Revisá que seas admin de la página y que la hayas elegido al dar los permisos.",
+      404
+    );
   }
 
   const choices: PageChoice[] = [];
   for (const page of pages) {
-    const fb = await repo.findSocial("fb", page.id);
-    const ig = page.instagram ? await repo.findSocial("ig", page.instagram.id) : null;
+    const existing = await repo.findSocial("fb", page.id);
     choices.push({
       id: page.id,
       name: page.name,
       pictureUrl: page.pictureUrl,
-      instagram: page.instagram,
-      connectedHere: { facebook: fb?.accountId === ctx.accountId, instagram: ig?.accountId === ctx.accountId },
-      takenElsewhere: {
-        facebook: Boolean(fb && fb.accountId !== ctx.accountId),
-        instagram: Boolean(ig && ig.accountId !== ctx.accountId),
-      },
+      connectedHere: existing?.accountId === ctx.accountId,
+      takenElsewhere: Boolean(existing && existing.accountId !== ctx.accountId),
     });
   }
-  const sealed: SealedPage[] = pages.map((p) => ({
-    id: p.id,
-    name: p.name,
-    token: p.accessToken,
-    pictureUrl: p.pictureUrl,
-    instagram: p.instagram,
-  }));
+  const sealed: SealedPage[] = pages.map((p) => ({ id: p.id, name: p.name, token: p.accessToken, pictureUrl: p.pictureUrl }));
   return { pages: choices, selection: seal("fb-pages", ctx.accountId, ctx.userId, sealed, PAGES_TTL) };
 }
 
-export interface PageSelection {
-  pageId: string;
-  facebook: boolean;
-  instagram: boolean;
-}
-
-// Paso 2: conecta lo elegido (Messenger + comentarios de la página y/o su Instagram).
-export async function connectFacebookPages(
-  repo: ChannelsRepo,
-  ctx: ConnectContext,
-  selection: unknown,
-  choices: unknown
-) {
+// Paso 2: conecta las páginas elegidas (choices = ids de página).
+export async function connectFacebookPages(repo: ChannelsRepo, ctx: ConnectContext, selection: unknown, choices: unknown) {
   const opened = unseal<SealedPage[]>(selection, "fb-pages", ctx);
   if (!opened) throw new ConnectError("Pasó mucho tiempo desde que diste los permisos. Volvé a tocar Conectar.", 410);
-  const picks = (Array.isArray(choices) ? choices : []).filter(
-    (c): c is PageSelection =>
-      typeof c?.pageId === "string" && typeof c.facebook === "boolean" && typeof c.instagram === "boolean"
-  );
-  if (!picks.some((p) => p.facebook || p.instagram)) throw new ConnectError("Elegí al menos una página o cuenta de Instagram.");
+  const pages = pickedIds(choices)
+    .map((id) => opened.data.find((p) => p.id === id))
+    .filter((p): p is SealedPage => Boolean(p));
+  if (pages.length === 0) throw new ConnectError("Elegí al menos una página.");
+
+  // Primero se valida todo, después se conecta (no queda nada a medias por una página tomada).
+  for (const page of pages) {
+    const existing = await repo.findSocial("fb", page.id);
+    if (existing && existing.accountId !== ctx.accountId) throw new ConnectError(`La página ${page.name} ${TAKEN}`, 409);
+  }
 
   const connected: ConnectedAccount[] = [];
-  for (const pick of picks) {
-    const page = opened.data.find((p) => p.id === pick.pageId);
-    if (!page || (!pick.facebook && !pick.instagram)) continue;
-
-    const fbExisting = pick.facebook ? await repo.findSocial("fb", page.id) : null;
-    if (fbExisting && fbExisting.accountId !== ctx.accountId) throw new ConnectError(`La página ${page.name} ${TAKEN}`, 409);
-    const igExisting = pick.instagram && page.instagram ? await repo.findSocial("ig", page.instagram.id) : null;
-    if (igExisting && igExisting.accountId !== ctx.accountId) {
-      throw new ConnectError(`El Instagram @${page.instagram!.username} ${TAKEN}`, 409);
-    }
-
-    // Una sola suscripción de la página cubre Messenger, comentarios e Instagram.
+  for (const page of pages) {
     await meta.subscribePage(page.token, page.id);
+    const id = await repo.saveSocial({
+      accountId: ctx.accountId,
+      channel: "fb",
+      externalId: page.id,
+      pageId: page.id,
+      authType: "page",
+      configId: facebookConfigId(),
+      displayName: page.name,
+      accessToken: page.token,
+      tokenExpiresAt: null,
+      pictureUrl: page.pictureUrl,
+      pageName: null,
+      connectedBy: ctx.userId || null,
+    });
+    const view = await viewOf(repo, ctx.accountId, id);
+    if (view) connected.push(view);
+  }
+  return connected;
+}
 
-    if (pick.facebook) {
-      const id = await repo.saveSocial({
-        accountId: ctx.accountId,
-        channel: "fb",
-        externalId: page.id,
-        pageId: page.id,
-        displayName: page.name,
-        accessToken: page.token,
-        tokenExpiresAt: null,
-        pictureUrl: page.pictureUrl,
-        pageName: null,
-        connectedBy: ctx.userId || null,
-      });
-      const saved = (await repo.listSocial(ctx.accountId)).find((s) => s.id === id);
-      if (saved) connected.push(socialAccountView(saved));
-    }
-    if (pick.instagram && page.instagram) {
-      const id = await repo.saveSocial({
-        accountId: ctx.accountId,
-        channel: "ig",
-        externalId: page.instagram.id,
-        pageId: page.id,
-        displayName: `@${page.instagram.username}`,
-        accessToken: page.token,
-        tokenExpiresAt: null,
-        pictureUrl: page.instagram.pictureUrl,
-        pageName: page.name,
-        connectedBy: ctx.userId || null,
-      });
-      const saved = (await repo.listSocial(ctx.accountId)).find((s) => s.id === id);
-      if (saved) connected.push(socialAccountView(saved));
-    }
+// ---------- Instagram API with Unified Login ----------
+//
+// FB.login con META_IG_CONFIG_ID -> code -> token de usuario del sistema -> debug_token
+// -> client_business_id -> /me/assigned_instagram_accounts -> la persona elige ->
+// se guarda el token cifrado por cuenta + POST /{ig-id}/subscribed_apps.
+// No hace falta página de Facebook.
+
+interface SealedInstagram {
+  token: string;
+  businessId: string | null;
+  expiresAt: number | null;
+  accounts: { id: string; username: string; pictureUrl: string | null }[];
+}
+
+export async function listInstagramAccounts(repo: ChannelsRepo, ctx: ConnectContext, code: unknown) {
+  const app = requireMetaApp();
+  if (!instagramConfigId()) throw new ConnectError("La conexión con Instagram todavía no está habilitada.", 503);
+  const token = await meta.exchangeFacebookCode(requireCode(code, "Instagram"), app);
+  const info = await meta.inspectToken(token, app, meta.INSTAGRAM_SCOPES);
+  const businessId = await meta.fetchClientBusinessId(token);
+  const accounts = await meta.fetchAssignedInstagramAccounts(token);
+  if (accounts.length === 0) {
+    throw new ConnectError(
+      "No encontramos cuentas de Instagram. Revisá que sea una cuenta profesional, que esté en tu portfolio comercial y que la hayas elegido al dar los permisos.",
+      404
+    );
+  }
+
+  const choices: InstagramChoice[] = [];
+  for (const a of accounts) {
+    const existing = await repo.findSocial("ig", a.id);
+    choices.push({
+      id: a.id,
+      name: `@${a.username}`,
+      pictureUrl: a.pictureUrl,
+      connectedHere: existing?.accountId === ctx.accountId,
+      takenElsewhere: Boolean(existing && existing.accountId !== ctx.accountId),
+    });
+  }
+  const sealed: SealedInstagram = { token, businessId, expiresAt: info.expiresAt, accounts };
+  return { accounts: choices, selection: seal("ig-accounts", ctx.accountId, ctx.userId, sealed, PAGES_TTL) };
+}
+
+export async function connectInstagramAccounts(repo: ChannelsRepo, ctx: ConnectContext, selection: unknown, choices: unknown) {
+  const opened = unseal<SealedInstagram>(selection, "ig-accounts", ctx);
+  if (!opened) throw new ConnectError("Pasó mucho tiempo desde que diste los permisos. Volvé a tocar Conectar.", 410);
+  const { token, businessId, expiresAt } = opened.data;
+  const picked = pickedIds(choices)
+    .map((id) => opened.data.accounts.find((a) => a.id === id))
+    .filter((a): a is SealedInstagram["accounts"][number] => Boolean(a));
+  if (picked.length === 0) throw new ConnectError("Elegí al menos una cuenta de Instagram.");
+
+  for (const a of picked) {
+    const existing = await repo.findSocial("ig", a.id);
+    if (existing && existing.accountId !== ctx.accountId) throw new ConnectError(`El Instagram @${a.username} ${TAKEN}`, 409);
+  }
+
+  const connected: ConnectedAccount[] = [];
+  for (const a of picked) {
+    await meta.subscribeInstagram(token, a.id);
+    const id = await repo.saveSocial({
+      accountId: ctx.accountId,
+      channel: "ig",
+      externalId: a.id,
+      pageId: null,
+      authType: "ig_unified",
+      businessId,
+      configId: instagramConfigId(),
+      displayName: `@${a.username}`,
+      accessToken: token,
+      tokenExpiresAt: expiresAt,
+      pictureUrl: a.pictureUrl,
+      pageName: null,
+      connectedBy: ctx.userId || null,
+    });
+    const view = await viewOf(repo, ctx.accountId, id);
+    if (view) connected.push(view);
   }
   return connected;
 }
@@ -271,7 +344,11 @@ export async function disconnectChannel(repo: ChannelsRepo, accountId: number, k
 
   const removed = await repo.disconnectSocial(accountId, id);
   if (!removed) throw new ConnectError("La conexión no existe.", 404);
-  // La página se desuscribe solo si ya no la usa ni Messenger ni su Instagram.
+  if (removed.authType === "ig_unified") {
+    await meta.unsubscribeInstagram(removed.accessToken, removed.externalId).catch(() => undefined);
+    return removed;
+  }
+  // La página se desuscribe solo si ya no la usa ni Messenger ni un Instagram vinculado.
   if (removed.pageId && removed.channel !== "th") {
     const stillUsed = (await repo.listSocial(accountId)).some((s) => s.pageId === removed.pageId);
     if (!stillUsed) await meta.unsubscribePage(removed.accessToken, removed.pageId).catch(() => undefined);

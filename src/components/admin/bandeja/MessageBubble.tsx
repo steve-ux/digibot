@@ -33,6 +33,13 @@ function systemText(m: UiMessage, meName: string) {
   return m.body ?? "";
 }
 
+// Acciones sobre un comentario del cliente (canales igc / fbc / th).
+export interface CommentActions {
+  onReply: (mode: "public" | "private") => void;
+  // null = se puede responder por privado; si no, el motivo. undefined = el canal no tiene privado.
+  privateBlocked?: string | null;
+}
+
 export interface FailureActions {
   onRetry: (m: UiMessage) => void;
   onTemplate: () => void;
@@ -82,11 +89,13 @@ export default function MessageBubble({
   channel,
   meName,
   actions,
+  commentActions,
 }: {
   message: UiMessage;
   channel: ChannelId;
   meName: string;
   actions: FailureActions;
+  commentActions?: CommentActions;
 }) {
   const time = formatTime(m.messageAt);
   const body = prettyBody(m.body, m.type);
@@ -108,13 +117,39 @@ export default function MessageBubble({
   }
 
   if (m.author === "customer") {
+    const deleted = Boolean(m.deletedAt);
     return (
       <div className="max-w-[min(560px,85%)] self-start md:max-w-[min(560px,78%)]">
         {label && <div className="mb-1 ml-1 text-[11px] font-semibold text-crm-muted">{label}</div>}
-        <div className={`${BUBBLE} rounded-bl-[4px] bg-crm-in-bubble text-crm-ink shadow-[0_1px_1px_rgba(0,0,0,.05)]`}>
-          <div className={TEXT}>{body}</div>
-          <div className="mt-[3px] text-right text-[11px] opacity-60">{time}</div>
+        <div
+          className={`${BUBBLE} rounded-bl-[4px] bg-crm-in-bubble text-crm-ink shadow-[0_1px_1px_rgba(0,0,0,.05)] ${deleted ? "opacity-60" : ""}`}
+        >
+          <div className={`${TEXT} ${deleted ? "line-through" : ""}`}>{body}</div>
+          <div className="mt-[3px] text-right text-[11px] opacity-60">
+            {deleted ? "Borrado por su autor · " : m.editedAt ? "Editado · " : ""}
+            {time}
+          </div>
         </div>
+        {commentActions && !deleted && (
+          <div className="ml-1 mt-1 flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => commentActions.onReply("public")}
+              className="h-7 rounded-pill border border-crm-border bg-crm-chip px-2.5 text-[11px] font-bold text-crm-ink-2 hover:border-crm-primary hover:text-crm-primary"
+            >
+              Responder en público
+            </button>
+            {commentActions.privateBlocked !== undefined && (
+              <button
+                onClick={() => commentActions.onReply("private")}
+                disabled={commentActions.privateBlocked !== null}
+                title={commentActions.privateBlocked ?? "Le llega como mensaje directo. Se puede una sola vez."}
+                className="h-7 rounded-pill border border-crm-border bg-crm-chip px-2.5 text-[11px] font-bold text-crm-ink-2 hover:border-crm-primary hover:text-crm-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-crm-border disabled:hover:text-crm-ink-2"
+              >
+                {commentActions.privateBlocked === "Ya le respondiste por privado" ? "Respondido por privado" : "Responder por privado"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }

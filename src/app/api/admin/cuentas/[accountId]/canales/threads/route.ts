@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { planDenied } from "@/lib/billing/account-plan";
 import { ConnectError, threadsAuthorizeUrl } from "@/lib/channels/service";
 import { requireAccountApi } from "@/lib/crm/api-auth";
 import { accountPath } from "@/lib/crm/permissions";
@@ -9,6 +10,11 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest, { params }: { params: Promise<{ accountId: string }> }) {
   const auth = await requireAccountApi((await params).accountId, "channels");
   if (auth.response) return auth.response;
+  if (await planDenied(auth.accountId, "threads")) {
+    const back = new URL(accountPath(auth.accountId, "canales"), req.url);
+    back.searchParams.set("error", "Tu plan no incluye Threads. Disponible desde el plan Premium.");
+    return NextResponse.redirect(back);
+  }
   try {
     return NextResponse.redirect(threadsAuthorizeUrl({ accountId: auth.accountId, userId: auth.user.id }, req.headers));
   } catch (err) {

@@ -189,6 +189,12 @@ export default function CuentasView({
             >
               Cuentas de WhatsApp
             </Link>
+            <Link
+              href="/admin/cuentas/cobros"
+              className="flex h-[46px] items-center rounded-pill border border-crm-border-2 bg-crm-chip px-[22px] font-poppins text-[15px] font-semibold text-crm-ink transition-colors hover:border-crm-primary hover:text-crm-primary"
+            >
+              Cobros
+            </Link>
             <button
               onClick={() => {
                 setErrors({});

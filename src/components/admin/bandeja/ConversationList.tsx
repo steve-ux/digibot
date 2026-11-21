@@ -45,11 +45,12 @@ export function matchesFilters(
   }
 }
 
-function Pill({ tone, children }: { tone: "tint" | "neutral" | "warn"; children: React.ReactNode }) {
+function Pill({ tone, children }: { tone: "tint" | "neutral" | "warn" | "success"; children: React.ReactNode }) {
   const cls = {
     tint: "border border-crm-tint-border bg-crm-tint text-crm-primary font-bold",
     neutral: "border border-crm-border bg-crm-surf text-crm-nav font-semibold",
     warn: "bg-crm-warn-bg text-crm-warn-ink font-semibold",
+    success: "bg-crm-success-bg text-crm-success-ink font-semibold",
   }[tone];
   return <span className={`flex items-center gap-[5px] rounded-pill px-2 py-[3px] text-[11px] ${cls}`}>{children}</span>;
 }
@@ -74,6 +75,8 @@ function Row({
   const assigneeShort = assignee && !c.botActive ? (assignee.id === meId ? "Vos" : assignee.name.split(" ")[0]) : null;
   const closedWindow = c.channel === "wa" && c.windowSecondsLeft <= 0 && open && !c.botActive;
   const name = displayName(c);
+  // Prototipo de TikTok: el comentario queda marcado cuando ya se respondió.
+  const replied = c.channel === "ttc" && c.lastMessageAuthor !== null && c.lastMessageAuthor !== "customer";
 
   return (
     <button
@@ -107,7 +110,7 @@ function Row({
             </span>
           )}
         </div>
-        {(bot || assigneeShort || closedWindow) && (
+        {(bot || assigneeShort || closedWindow || replied) && (
           <div className="mt-[7px] flex flex-wrap items-center gap-1.5">
             {bot && (
               <Pill tone="tint">
@@ -117,6 +120,12 @@ function Row({
             )}
             {assigneeShort && <Pill tone="neutral">{assigneeShort}</Pill>}
             {closedWindow && <Pill tone="warn">Ventana cerrada</Pill>}
+            {replied && (
+              <Pill tone="success">
+                <Icon name="check" size={12} />
+                Respondido
+              </Pill>
+            )}
           </div>
         )}
       </div>

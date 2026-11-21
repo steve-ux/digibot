@@ -34,8 +34,9 @@ const CONVERSATION_COLUMNS = `
   GREATEST(0, COALESCE(TIMESTAMPDIFF(SECOND, NOW(), last_inbound_at + INTERVAL 24 HOUR), 0)) AS window_seconds_left`;
 
 const MESSAGE_COLUMNS = `
-  id, conversation_id, wamid, direction, author, author_name, type, body, template_name, status,
-  error_code, error_title, UNIX_TIMESTAMP(message_at) AS message_ts`;
+  id, conversation_id, wamid, in_reply_to, direction, author, author_name, type, body, template_name, status,
+  error_code, error_title, UNIX_TIMESTAMP(message_at) AS message_ts,
+  UNIX_TIMESTAMP(edited_at) AS edited_ts, UNIX_TIMESTAMP(deleted_at) AS deleted_ts`;
 
 interface ConversationRow extends RowDataPacket {
   id: number;
@@ -66,6 +67,7 @@ interface MessageRow extends RowDataPacket {
   id: number;
   conversation_id: number;
   wamid: string | null;
+  in_reply_to: string | null;
   direction: MessageDirection;
   author: MessageAuthor | null;
   author_name: string | null;
@@ -76,6 +78,8 @@ interface MessageRow extends RowDataPacket {
   error_code: number | null;
   error_title: string | null;
   message_ts: number | string;
+  edited_ts: number | string | null;
+  deleted_ts: number | string | null;
 }
 
 function toNumberOrNull(value: number | string | null) {
@@ -164,6 +168,9 @@ function mapMessage(row: MessageRow): InboxMessage {
     errorCode: row.error_code,
     errorTitle: row.error_title,
     messageAt: Number(row.message_ts),
+    inReplyTo: row.in_reply_to ?? null,
+    editedAt: toNumberOrNull(row.edited_ts ?? null),
+    deletedAt: toNumberOrNull(row.deleted_ts ?? null),
   };
 }
 
@@ -372,13 +379,14 @@ export class MySqlInboxStore implements InboxStore {
     // (a diferencia de INSERT IGNORE).
     const [result] = await getPool().query<ResultSetHeader>(
       `INSERT INTO web_wa_messages
-         (conversation_id, wamid, direction, author, author_name, type, body, template_name, status,
+         (conversation_id, wamid, in_reply_to, direction, author, author_name, type, body, template_name, status,
           error_code, error_title, raw_payload, message_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FROM_UNIXTIME(?))
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FROM_UNIXTIME(?))
        ON DUPLICATE KEY UPDATE id = id`,
       [
         message.conversationId,
         message.wamid,
+        message.inReplyTo ?? null,
         message.direction,
         message.author ?? defaultAuthor(message.direction),
         truncate(message.authorName ?? null, 191),
@@ -482,6 +490,31 @@ export class MySqlInboxStore implements InboxStore {
          AND message_at <= FROM_UNIXTIME(?)`,
       [conversationId, untilUnix]
     );
+  }
+
+  async editMessageByWamid(wamid: string, body: string, at: number) {
+    const [result] = await getPool().query<ResultSetHeader>(
+      `UPDATE web_wa_messages SET body = ?, edited_at = FROM_UNIXTIME(?) WHERE wamid = ? AND direction = 'in'`,
+      [body, at, wamid]
+    );
+    return result.affectedRows > 0;
+  }
+
+  async markDeletedByWamid(wamid: string, at: number) {
+    const [result] = await getPool().query<ResultSetHeader>(
+      `UPDATE web_wa_messages SET deleted_at = COALESCE(deleted_at, FROM_UNIXTIME(?)) WHERE wamid = ?`,
+      [at, wamid]
+    );
+    return result.affectedRows > 0;
+  }
+
+  async hasPrivateReply(commentId: string) {
+    const [rows] = await getPool().query<RowDataPacket[]>(
+      `SELECT 1 FROM web_wa_messages
+       WHERE in_reply_to = ? AND type = 'private_reply' AND direction = 'out' AND status <> 'failed' LIMIT 1`,
+      [commentId]
+    );
+    return rows.length > 0;
   }
 
   async recentOutboundStatuses(conversationId: number, limit: number) {

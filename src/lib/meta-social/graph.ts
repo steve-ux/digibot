@@ -1,10 +1,14 @@
 // Llamadas a la Graph API para Messenger, Instagram, Facebook y Threads. Server-only.
-// Messenger/Instagram/Facebook usan el token de la página (API con inicio de sesión
-// de Facebook); Threads usa graph.threads.net con su propio token.
+// Las usan los adaptadores de src/lib/channels/adapters (no llamar directo desde la bandeja).
 //
-// Endpoints:
-//   DM (Messenger e Instagram) ........ POST /{page-id}/messages
-//   Respuesta privada a comentario .... POST /{page-id}/messages  { recipient: { comment_id } }  (IG y FB)
+//   Messenger / comentarios FB -> token de la página, nodo {page-id}
+//   Instagram (Unified Login)  -> token de usuario del sistema, nodo {ig-user-id}, graph.facebook.com
+//   Instagram viejo (por página) -> token de la página vinculada, nodo {page-id}
+//   Threads -> graph.threads.net con su propio token
+//
+// Endpoints ({node} = página o cuenta de IG según lo de arriba):
+//   DM (Messenger e Instagram) ........ POST /{node}/messages
+//   Respuesta privada a comentario .... POST /{node}/messages  { recipient: { comment_id } }  (IG y FB)
 //   Respuesta pública a comentario IG . POST /{comment-id}/replies
 //   Respuesta pública a comentario FB . POST /{comment-id}/comments
 //   Respuesta en Threads .............. POST /{user-id}/threads (reply_to_id) + POST /{user-id}/threads_publish
@@ -50,6 +54,8 @@ async function socialFetch<T>(account: SocialAccount, path: string, init?: Reque
 export interface SendResult {
   // mid del mensaje (DM / respuesta privada) o id del comentario (respuesta pública)
   id: string | null;
+  // Respuesta privada: PSID / IGSID de quien comentó (para abrir su conversación de DM)
+  recipientId?: string | null;
 }
 
 // RESPONSE dentro de las 24 h; pasado eso y hasta 7 días, Meta permite que
@@ -59,6 +65,12 @@ export type MessagingWindow = "standard" | "human_agent";
 function requirePage(account: SocialAccount) {
   if (!account.pageId) throw new MetaConfigError("La cuenta no tiene una página de Facebook vinculada.");
   return account.pageId;
+}
+
+// Desde qué nodo se mandan los mensajes: la cuenta de Instagram (Unified Login) o la página.
+export function messagingNode(account: SocialAccount) {
+  if (account.channel === "ig" && account.authType === "ig_unified") return account.accountId;
+  return requirePage(account);
 }
 
 export async function sendDirectMessage(
@@ -71,7 +83,7 @@ export async function sendDirectMessage(
     window === "human_agent"
       ? { recipient: { id: recipientId }, messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT", message: { text } }
       : { recipient: { id: recipientId }, messaging_type: "RESPONSE", message: { text } };
-  const data = await socialFetch<{ message_id?: string }>(account, `/${requirePage(account)}/messages`, {
+  const data = await socialFetch<{ message_id?: string }>(account, `/${messagingNode(account)}/messages`, {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -79,11 +91,12 @@ export async function sendDirectMessage(
 }
 
 export async function sendPrivateReply(account: SocialAccount, commentId: string, text: string): Promise<SendResult> {
-  const data = await socialFetch<{ message_id?: string }>(account, `/${requirePage(account)}/messages`, {
-    method: "POST",
-    body: JSON.stringify({ recipient: { comment_id: commentId }, message: { text } }),
-  });
-  return { id: data.message_id ?? null };
+  const data = await socialFetch<{ message_id?: string; recipient_id?: string }>(
+    account,
+    `/${messagingNode(account)}/messages`,
+    { method: "POST", body: JSON.stringify({ recipient: { comment_id: commentId }, message: { text } }) }
+  );
+  return { id: data.message_id ?? null, recipientId: data.recipient_id ?? null };
 }
 
 export async function replyToComment(account: SocialAccount, commentId: string, text: string): Promise<SendResult> {

@@ -73,7 +73,8 @@ function parseSendInput(body: unknown): SendInput | null {
   const data = body as Record<string, unknown> | null;
   if (data?.type === "text" && typeof data.body === "string") {
     const replyMode = data.replyMode === "public" || data.replyMode === "private" ? data.replyMode : undefined;
-    return { type: "text", body: data.body, replyMode };
+    const commentId = typeof data.commentId === "string" && data.commentId ? data.commentId : undefined;
+    return { type: "text", body: data.body, replyMode, commentId };
   }
   const isStringArray = (v: unknown): v is string[] =>
     Array.isArray(v) && v.every((x) => typeof x === "string");

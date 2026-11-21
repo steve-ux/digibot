@@ -6,7 +6,7 @@ import { decryptSecret, encryptSecret } from "../crypto";
 import { getPool } from "../db";
 import type { ChannelsRepo, NewSocial, SocialKind, SocialRecord } from "./repo";
 
-const SOCIAL_COLUMNS = `id, client_id, channel, account_id, page_id, display_name, access_token_enc, meta,
+const SOCIAL_COLUMNS = `id, client_id, channel, account_id, page_id, auth_type, business_id, config_id, display_name, access_token_enc, meta,
   UNIX_TIMESTAMP(token_expires_at) AS expires_ts, UNIX_TIMESTAMP(COALESCE(connected_at, created_at)) AS connected_ts`;
 
 interface SocialRow extends RowDataPacket {
@@ -15,6 +15,9 @@ interface SocialRow extends RowDataPacket {
   channel: SocialKind;
   account_id: string;
   page_id: string | null;
+  auth_type: "page" | "ig_unified" | null;
+  business_id: string | null;
+  config_id: string | null;
   display_name: string | null;
   access_token_enc: string | null;
   meta: unknown;
@@ -42,6 +45,9 @@ function mapSocial(r: SocialRow): SocialRecord {
     channel: r.channel,
     externalId: r.account_id,
     pageId: r.page_id,
+    authType: r.auth_type ?? "page",
+    businessId: r.business_id ?? null,
+    configId: r.config_id ?? null,
     displayName: r.display_name,
     accessToken: r.access_token_enc ? decryptSecret(r.access_token_enc) : "",
     tokenExpiresAt: r.expires_ts === null ? null : Number(r.expires_ts),
@@ -72,15 +78,30 @@ class MySqlChannelsRepo implements ChannelsRepo {
     const meta = JSON.stringify({ pictureUrl: r.pictureUrl, pageName: r.pageName });
     const [result] = await getPool().query<ResultSetHeader>(
       `INSERT INTO web_channel_accounts
-         (client_id, channel, account_id, page_id, display_name, access_token_enc, token_expires_at,
-          status, meta, connected_at, connected_by)
-       VALUES (?, ?, ?, ?, ?, ?, FROM_UNIXTIME(?), 'connected', ?, NOW(), ?)
+         (client_id, channel, account_id, page_id, auth_type, business_id, config_id, display_name, access_token_enc,
+          token_expires_at, status, health, meta, connected_at, connected_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FROM_UNIXTIME(?), 'connected', 'active', ?, NOW(), ?)
        ON DUPLICATE KEY UPDATE
-         client_id = VALUES(client_id), page_id = VALUES(page_id), display_name = VALUES(display_name),
+         client_id = VALUES(client_id), page_id = VALUES(page_id), auth_type = VALUES(auth_type),
+         business_id = VALUES(business_id), config_id = VALUES(config_id), display_name = VALUES(display_name),
+         health = 'active', last_error = NULL, last_error_at = NULL, disconnection_info = NULL,
          access_token_enc = VALUES(access_token_enc), token_expires_at = VALUES(token_expires_at),
          status = 'connected', meta = VALUES(meta), connected_at = NOW(), connected_by = VALUES(connected_by),
          id = LAST_INSERT_ID(id)`,
-      [r.accountId, r.channel, r.externalId, r.pageId, r.displayName, encryptSecret(r.accessToken), r.tokenExpiresAt, meta, r.connectedBy]
+      [
+        r.accountId,
+        r.channel,
+        r.externalId,
+        r.pageId,
+        r.authType ?? "page",
+        r.businessId ?? null,
+        r.configId ?? null,
+        r.displayName,
+        encryptSecret(r.accessToken),
+        r.tokenExpiresAt,
+        meta,
+        r.connectedBy,
+      ]
     );
     return result.insertId;
   }

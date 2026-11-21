@@ -47,7 +47,10 @@ export interface MetaClientConfig {
   whatsappConfigId: string | null;
   // extras.version del Embedded Signup (v5)
   whatsappEsVersion: string;
+  // Facebook Login for Business: páginas (Messenger + comentarios)
   loginConfigId: string | null;
+  // Facebook Login for Business: Instagram API with Unified Login
+  instagramConfigId: string | null;
 }
 
 export interface ChannelsOverview {
@@ -56,13 +59,17 @@ export interface ChannelsOverview {
   meta: MetaClientConfig;
 }
 
-// Página de Facebook para elegir después del login (sin tokens: esos quedan sellados).
-export interface PageChoice {
+// Página de Facebook o cuenta de Instagram para elegir después del login
+// (sin tokens: esos quedan sellados).
+export interface AssetChoice {
   id: string;
+  // Nombre de la página / @usuario
   name: string;
   pictureUrl: string | null;
-  instagram: { id: string; username: string; pictureUrl: string | null } | null;
   // Ya conectada en esta cuenta / en otra cuenta del sistema
-  connectedHere: { facebook: boolean; instagram: boolean };
-  takenElsewhere: { facebook: boolean; instagram: boolean };
+  connectedHere: boolean;
+  takenElsewhere: boolean;
 }
+
+export type PageChoice = AssetChoice;
+export type InstagramChoice = AssetChoice;

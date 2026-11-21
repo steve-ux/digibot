@@ -66,7 +66,8 @@ export async function exchangeFacebookCode(code: string, app: { appId: string; a
   return data.access_token as string;
 }
 
-// Token de larga duración (si ya lo es, Meta devuelve uno igual de válido).
+// Token de larga duración, solo si la configuración de login devolvió un token de
+// usuario común (con uno de usuario del sistema no hace falta: no vence).
 export async function longLivedFacebookToken(token: string, app: { appId: string; appSecret: string }) {
   try {
     const data = await call(
@@ -81,6 +82,49 @@ export async function longLivedFacebookToken(token: string, app: { appId: string
   }
 }
 
+// Valida el token recién canjeado con debug_token (se pide con el token de la app).
+// Tiene que ser válido y de esta app; si falta alguno de los permisos pedidos, se avisa.
+export interface TokenInfo {
+  type: string | null;
+  scopes: string[];
+  expiresAt: number | null;
+}
+
+export async function inspectToken(
+  token: string,
+  app: { appId: string; appSecret: string },
+  requiredScopes: string[] = []
+): Promise<TokenInfo> {
+  const res = await call(
+    graph(),
+    "/debug_token",
+    { query: { input_token: token, access_token: `${app.appId}|${app.appSecret}` } },
+    "No pudimos validar la autorización de Meta. Probá conectar de nuevo."
+  );
+  const data = (res.data ?? {}) as {
+    is_valid?: boolean;
+    app_id?: string;
+    type?: string;
+    scopes?: string[];
+    expires_at?: number;
+  };
+  if (!data.is_valid) throw new ConnectError("Meta devolvió una autorización inválida. Probá conectar de nuevo.");
+  if (data.app_id && String(data.app_id) !== app.appId) {
+    throw new ConnectError("La autorización no es de la app de DigiBot. Probá conectar de nuevo.", 400, `app_id ${data.app_id}`);
+  }
+  const scopes = Array.isArray(data.scopes) ? data.scopes : [];
+  const missing = requiredScopes.filter((s) => !scopes.includes(s));
+  if (missing.length > 0) {
+    throw new ConnectError(
+      "Faltan permisos. Volvé a conectar y aceptá todos los permisos que pide DigiBot.",
+      400,
+      `faltan: ${missing.join(",")}`
+    );
+  }
+  // expires_at 0 = no vence (token de usuario del sistema)
+  return { type: data.type ?? null, scopes, expiresAt: data.expires_at ? Number(data.expires_at) : null };
+}
+
 // ---------- Páginas e Instagram ----------
 
 export interface MetaPage {
@@ -88,7 +132,6 @@ export interface MetaPage {
   name: string;
   accessToken: string;
   pictureUrl: string | null;
-  instagram: { id: string; username: string; pictureUrl: string | null } | null;
 }
 
 export async function fetchPages(userToken: string): Promise<MetaPage[]> {
@@ -98,7 +141,7 @@ export async function fetchPages(userToken: string): Promise<MetaPage[]> {
     {
       token: userToken,
       query: {
-        fields: "id,name,access_token,picture{url},instagram_business_account{id,username,profile_picture_url}",
+        fields: "id,name,access_token,picture{url}",
         limit: "100",
       },
     },
@@ -107,19 +150,17 @@ export async function fetchPages(userToken: string): Promise<MetaPage[]> {
   const pages: MetaPage[] = [];
   for (const p of (data.data ?? []) as Record<string, unknown>[]) {
     if (typeof p.id !== "string" || typeof p.access_token !== "string") continue;
-    const ig = p.instagram_business_account as { id?: string; username?: string; profile_picture_url?: string } | undefined;
     pages.push({
       id: p.id,
       name: typeof p.name === "string" ? p.name : p.id,
       accessToken: p.access_token,
       pictureUrl: (p.picture as { data?: { url?: string } } | undefined)?.data?.url ?? null,
-      instagram: ig?.id ? { id: ig.id, username: ig.username ?? ig.id, pictureUrl: ig.profile_picture_url ?? null } : null,
     });
   }
   return pages;
 }
 
-// Mensajes de Messenger e Instagram y comentarios de la página llegan al webhook /webhooks/meta.
+// Mensajes de Messenger y comentarios de la página llegan al webhook /webhooks/meta.
 export const PAGE_FIELDS = ["messages", "messaging_postbacks", "message_reads", "message_deliveries", "feed"];
 
 export async function subscribePage(pageToken: string, pageId: string) {
@@ -133,6 +174,76 @@ export async function subscribePage(pageToken: string, pageId: string) {
 
 export async function unsubscribePage(pageToken: string, pageId: string) {
   await call(graph(), `/${pageId}/subscribed_apps`, { method: "DELETE", token: pageToken }, "No pudimos desactivar la página.");
+}
+
+// ---------- Instagram API with Unified Login ----------
+//
+// Docs: developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login
+//   - el token es de un usuario del sistema del portfolio del cliente (/me es ese usuario, no la cuenta de IG)
+//   - GET /me?fields=client_business_id
+//   - GET /me/assigned_instagram_accounts?fields=id,username
+//   - POST /{ig-id}/subscribed_apps en graph.facebook.com con ese mismo token
+
+export const INSTAGRAM_SCOPES = ["instagram_basic", "instagram_manage_messages", "instagram_manage_comments"];
+export const INSTAGRAM_FIELDS = ["messages", "messaging_postbacks", "messaging_seen", "comments"];
+
+export async function fetchClientBusinessId(token: string): Promise<string | null> {
+  try {
+    const data = await call(graph(), "/me", { token, query: { fields: "client_business_id" } }, "No pudimos leer tu portfolio comercial.");
+    return typeof data.client_business_id === "string" ? data.client_business_id : null;
+  } catch {
+    // No es imprescindible para conectar: se usa más adelante para administrar el token.
+    return null;
+  }
+}
+
+export interface MetaInstagramAccount {
+  id: string;
+  username: string;
+  pictureUrl: string | null;
+}
+
+export async function fetchAssignedInstagramAccounts(token: string): Promise<MetaInstagramAccount[]> {
+  const read = async (fields: string) => {
+    const accounts: Record<string, unknown>[] = [];
+    let after: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const data = await call(
+        graph(),
+        "/me/assigned_instagram_accounts",
+        { token, query: { fields, limit: "100", after } },
+        "No pudimos leer tus cuentas de Instagram."
+      );
+      accounts.push(...((data.data ?? []) as Record<string, unknown>[]));
+      after = data.paging?.next ? data.paging?.cursors?.after : undefined;
+      if (!after) break;
+    }
+    return accounts;
+  };
+  let raw: Record<string, unknown>[];
+  try {
+    raw = await read("id,username,profile_picture_url");
+  } catch (err) {
+    // La doc solo garantiza id y username: si la foto no se puede pedir, sin foto.
+    if (!(err instanceof ConnectError)) throw err;
+    raw = await read("id,username");
+  }
+  return raw
+    .filter((a): a is { id: string; username?: string; profile_picture_url?: string } => typeof a.id === "string")
+    .map((a) => ({ id: a.id, username: a.username ?? a.id, pictureUrl: a.profile_picture_url ?? null }));
+}
+
+export async function subscribeInstagram(token: string, igUserId: string) {
+  await call(
+    graph(),
+    `/${igUserId}/subscribed_apps`,
+    { method: "POST", token, query: { subscribed_fields: INSTAGRAM_FIELDS.join(",") } },
+    "No pudimos activar los mensajes de Instagram. Revisá que la cuenta sea profesional y probá de nuevo."
+  );
+}
+
+export async function unsubscribeInstagram(token: string, igUserId: string) {
+  await call(graph(), `/${igUserId}/subscribed_apps`, { method: "DELETE", token }, "No pudimos desactivar Instagram.");
 }
 
 // ---------- Threads ----------

@@ -25,6 +25,8 @@ export interface CrmUser {
   accountId: number | null;
   // Acceso inicial con la contraseña compartida
   bootstrap: boolean;
+  // Cuenta suspendida por falta de pago: solo se muestra Suscripción
+  billingLocked?: boolean;
 }
 
 export interface ShellAccount {
@@ -271,7 +273,7 @@ export default function CrmShell({
   // Fuera de la bandeja, el badge (y el sonido de mensaje nuevo) se mantiene con un resumen liviano.
   // Con sonidos prendidos sigue consultando en segundo plano, que es cuando más sirve el aviso.
   useEffect(() => {
-    if (onInbox || demo || accountId === null) return;
+    if (onInbox || demo || accountId === null || user.billingLocked) return;
     let cancelled = false;
     let lastInbound: Record<string, number> | null = null;
     const load = async () => {
@@ -300,7 +302,7 @@ export default function CrmShell({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [onInbox, demo, accountId, playIncoming]);
+  }, [onInbox, demo, accountId, playIncoming, user.billingLocked]);
 
   useEffect(() => {
     if (!onInbox) setImmersive(false);
@@ -330,7 +332,7 @@ export default function CrmShell({
   );
 
   // El menú muestra solo lo que el rol puede usar (el control real está en el middleware y las APIs).
-  const nav = accountId ? accountNav(accountId) : { main: [], admin: [] };
+  const nav = accountId && !user.billingLocked ? accountNav(accountId) : { main: [], admin: [] };
   const navMain = nav.main.filter((item) => canAccess(user.role, item.section));
   const navAdmin = nav.admin.filter((item) => canAccess(user.role, item.section));
   // Configuración la ve todo el mundo (perfil, sonidos, soporte); etiquetas y atributos, solo quien administra.
@@ -547,7 +549,13 @@ export default function CrmShell({
             )}
 
             <main id="crm-main" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <NotificationsBar accountId={accountId} disabled={demo} />
+              <NotificationsBar accountId={accountId} disabled={demo || Boolean(user.billingLocked)} />
+              {user.billingLocked && (
+                <div role="alert" className="mx-4 mt-4 rounded-card border border-crm-warn-border bg-crm-warn-bg px-4 py-3 text-sm font-semibold text-crm-warn-ink md:mx-8">
+                  Tu cuenta está suspendida por falta de pago: el panel y el bot están pausados. Pagá la suscripción con otra tarjeta y se
+                  reactiva todo al instante.
+                </div>
+              )}
               {children}
             </main>
 

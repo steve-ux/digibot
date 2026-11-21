@@ -2,6 +2,7 @@ import CanalesView, { type ChannelsLoadState } from "@/components/crm/canales/Ca
 import { channelsRepo } from "@/lib/channels/api";
 import { providerAvailability } from "@/lib/channels/config";
 import { channelsOverview } from "@/lib/channels/overview";
+import { lockedProviders } from "@/lib/billing/account-plan";
 import { loadAccountPage } from "@/lib/crm/account-page";
 import { createSignupSession } from "@/lib/whatsapp-accounts/onboarding";
 
@@ -11,7 +12,13 @@ async function load(accountId: number): Promise<ChannelsLoadState> {
   const repo = channelsRepo();
   if (!repo) return { kind: "error", message: "La base de datos no está configurada." };
   try {
-    return { kind: "ready", overview: await channelsOverview(repo, accountId) };
+    const [overview, locked] = await Promise.all([channelsOverview(repo, accountId), lockedProviders(accountId)]);
+    // Canales que el plan no incluye: la tarjeta queda sin botón de Conectar, con el motivo.
+    // Lo ya conectado no se toca (por ejemplo, si bajó de plan).
+    for (const [provider, reason] of Object.entries(locked) as [keyof typeof overview.availability, string][]) {
+      if (overview.availability[provider]) overview.availability[provider] = { ...overview.availability[provider], available: false, reason: `Tu plan no incluye este canal. ${reason}` };
+    }
+    return { kind: "ready", overview };
   } catch (err) {
     console.error("[canales] No se pudieron cargar los canales:", err);
     return {

@@ -70,6 +70,11 @@ export interface InboxMessage {
   errorCode: number | null;
   errorTitle: string | null;
   messageAt: number;
+  // Comentarios: id del comentario al que responde este saliente (público o privado)
+  inReplyTo?: string | null;
+  // El autor editó / borró su comentario
+  editedAt?: number | null;
+  deletedAt?: number | null;
 }
 
 export type MessageStatusUpdate = Pick<InboxMessage, "id" | "wamid" | "status" | "errorCode" | "errorTitle">;

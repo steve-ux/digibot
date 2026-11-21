@@ -5,12 +5,19 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/crm/Icon";
 import { useToast } from "@/components/crm/Toast";
 import { isCommentChannel, supportsPrivateReply } from "@/lib/crm/channels";
-import { replyAvailability } from "@/lib/crm/reply-window";
+import { replyAvailability, WINDOW_CLOSED_TITLE } from "@/lib/crm/reply-window";
 import type { InboxConversation } from "@/lib/wa-inbox/types";
 import type { ReplyMode } from "./api";
 import { QUICK_REPLIES, useMediaQuery } from "./utils";
 
 export type ComposeTarget = "reply" | ReplyMode | "note";
+
+// Comentario puntual elegido desde su burbuja ("Responder en público / por privado").
+export interface ReplyTarget {
+  commentId: string;
+  mode: ReplyMode;
+  preview: string;
+}
 
 const MAX_HEIGHT = 140;
 
@@ -20,7 +27,7 @@ export function composerState(c: InboxConversation) {
   if (c.status === "resolved") return "resolved" as const;
   if (c.botActive) return "bot" as const;
   if (c.channel === "wa" && c.windowSecondsLeft <= 0) return "gate" as const;
-  // Instagram / Messenger: más de 7 días sin que el cliente escriba.
+  // Instagram / Messenger: ventana de 24 h cerrada (o 7 días con HUMAN_AGENT).
   if ((c.channel === "ig" || c.channel === "fb") && !replyAvailability(c, "message").allowed) {
     return "expired" as const;
   }
@@ -49,6 +56,9 @@ export default function Composer({
   onTakeOver,
   onGiveBack,
   onOpenTemplates,
+  replyTarget = null,
+  onClearReplyTarget,
+  privateBlocked = null,
 }: {
   conversation: InboxConversation;
   draft: string;
@@ -59,6 +69,11 @@ export default function Composer({
   onTakeOver: () => void;
   onGiveBack: () => void;
   onOpenTemplates: () => void;
+  // Comentarios: a cuál se responde (si no hay, al último del cliente)
+  replyTarget?: ReplyTarget | null;
+  onClearReplyTarget?: () => void;
+  // Comentarios: por qué no se puede responder por privado el comentario actual (null = se puede)
+  privateBlocked?: string | null;
 }) {
   const toast = useToast();
   const state = composerState(conversation);
@@ -69,6 +84,16 @@ export default function Composer({
   const coarse = useMediaQuery("(pointer: coarse)");
 
   useEffect(() => setTarget(isComment ? "public" : "reply"), [conversation.id, isComment]);
+  useEffect(() => {
+    if (replyTarget) {
+      setTarget(replyTarget.mode);
+      textareaRef.current?.focus();
+    }
+  }, [replyTarget]);
+  // Si el comentario ya no admite respuesta privada, se vuelve a "En público".
+  useEffect(() => {
+    if (target === "private" && privateBlocked) setTarget("public");
+  }, [target, privateBlocked]);
 
   const resize = () => {
     const el = textareaRef.current;
@@ -168,7 +193,7 @@ export default function Composer({
         <div className="flex flex-wrap items-center gap-3.5 rounded-[18px] border border-crm-warn-border bg-crm-warn-soft px-4 py-3.5">
           <Icon name="lock" size={22} className="text-crm-warn" />
           <div className="min-w-[180px] flex-1">
-            <div className="text-[15px] font-semibold text-crm-warn-ink">Ya no se puede responder por este canal</div>
+            <div className="text-[15px] font-semibold text-crm-warn-ink">{WINDOW_CLOSED_TITLE}</div>
             <div className="text-[13px] text-crm-warn-ink-2">{replyAvailability(conversation, "message").reason}</div>
           </div>
         </div>
@@ -194,8 +219,7 @@ export default function Composer({
     );
   }
 
-  const privateAllowed =
-    isComment && supportsPrivateReply(conversation.channel) && replyAvailability(conversation, "comment_private").allowed;
+  const privateAllowed = isComment && supportsPrivateReply(conversation.channel) && !privateBlocked;
   const humanAgent = !isComment && conversation.channel !== "wa" && replyAvailability(conversation, "message").humanAgent;
   const targets: { id: ComposeTarget; label: string }[] = isComment
     ? [
@@ -257,6 +281,26 @@ export default function Composer({
               </button>
             ))}
         </div>
+
+        {isComment && replyTarget && !isNote && (
+          <div className="flex items-center gap-2 rounded-field bg-crm-surf px-3 py-2 text-xs text-crm-ink-2">
+            <Icon name="retry" size={14} className="shrink-0 text-crm-muted" />
+            <span className="min-w-0 flex-1 truncate">
+              Respondiendo {target === "private" ? "por privado" : "en público"} a «{replyTarget.preview}»
+            </span>
+            <button
+              onClick={onClearReplyTarget}
+              aria-label="Responder al último comentario"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-crm-muted hover:bg-crm-chip hover:text-crm-ink"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {isComment && privateBlocked && supportsPrivateReply(conversation.channel) && !isNote && (
+          <div className="text-[11px] text-crm-muted">Por privado no disponible: {privateBlocked}.</div>
+        )}
 
         {humanAgent && !isNote && (
           <div className="flex items-start gap-2 rounded-field bg-crm-warn-soft px-3 py-2 text-xs leading-[1.4] text-crm-warn-ink">

@@ -121,8 +121,10 @@ export async function launchEmbeddedSignup(
   }
 }
 
-// Facebook Login for Business (páginas e Instagram): devuelve el código o null si se canceló.
-export async function runFacebookLogin(config: MetaClientConfig): Promise<string | null> {
+// Facebook Login for Business: devuelve el código o null si se canceló.
+// configId: la de páginas (Messenger + comentarios) o la de Instagram (Unified Login).
+export async function runFacebookLogin(config: MetaClientConfig, configId: string | null): Promise<string | null> {
+  if (!configId) throw new Error("Esta conexión todavía no está habilitada.");
   const fb = await loadFacebookSdk(config);
-  return login(fb, { config_id: config.loginConfigId });
+  return login(fb, { config_id: configId });
 }

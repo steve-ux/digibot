@@ -6,7 +6,7 @@ import { isDbConfigured } from "../db";
 import type { Account } from "./accounts-repo";
 import { getMySqlAccountsRepo } from "./accounts-mysql";
 import { accountPath, canAccess, canEnterAccount, type Section } from "./permissions";
-import { getCurrentUser, homePath, type CrmUser } from "./session";
+import { billingPagePath, getCurrentUser, homePath, type CrmUser } from "./session";
 
 export async function getAccountOrNull(id: number): Promise<Account | null> {
   if (!isDbConfigured()) return { id, name: `Cuenta ${id}`, status: "active", createdAt: 0 };
@@ -21,13 +21,16 @@ export async function getAccountOrNull(id: number): Promise<Account | null> {
 
 export async function loadAccountPage(
   rawAccountId: string,
-  section: Section
+  section: Section,
+  // true solo en Configuración: es donde una cuenta suspendida por falta de pago puede pagar
+  opts: { billingPage?: boolean } = {}
 ): Promise<{ me: CrmUser; account: Account }> {
   const me = await getCurrentUser();
   if (!me) redirect("/admin/login?expirada=1");
   const accountId = Number(rawAccountId);
   if (!Number.isSafeInteger(accountId) || accountId <= 0) notFound();
   if (!canEnterAccount({ role: me.role, acc: me.accountId }, accountId)) redirect(homePath(me));
+  if (me.billingLocked && !opts.billingPage) redirect(billingPagePath(accountId));
   if (!canAccess(me.role, section)) redirect(accountPath(accountId));
   const account = await getAccountOrNull(accountId);
   if (!account) notFound();

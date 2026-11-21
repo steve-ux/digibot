@@ -63,6 +63,56 @@ const POST: InboxPost = {
   thumbnailUrl: null,
 };
 
+// Prototipo de TikTok (solo superadmin en demo): videos de la cuenta, comentarios
+// y mensajes directos de ejemplo.
+export interface DemoTikTokVideo extends InboxPost {
+  id: string;
+  views: number;
+  // Minutos antes de ahora
+  postedAgo: number;
+}
+
+export const DEMO_TIKTOK_VIDEOS: DemoTikTokVideo[] = [
+  {
+    id: "v1",
+    caption: "3 tips para elegir anteojos según la forma de tu cara 👓✨ #optica #anteojos #tips",
+    likes: 1342,
+    comments: 87,
+    views: 18400,
+    postedAgo: 26 * 60,
+    thumbnailUrl: "/crm/demo/tiktok-video.svg",
+  },
+  {
+    id: "v2",
+    caption: "Así ajustamos tus anteojos en 2 minutos 🔧",
+    likes: 512,
+    comments: 23,
+    views: 7300,
+    postedAgo: 4 * 24 * 60,
+    thumbnailUrl: "/crm/demo/tiktok-video-2.svg",
+  },
+  {
+    id: "v3",
+    caption: "Nueva colección de sol 2027 ☀️😎",
+    likes: 2210,
+    comments: 140,
+    views: 31200,
+    postedAgo: 9 * 24 * 60,
+    thumbnailUrl: "/crm/demo/tiktok-video-3.svg",
+  },
+  {
+    id: "v4",
+    caption: "¿Redondos o cuadrados? Te leemos 👇",
+    likes: 890,
+    comments: 64,
+    views: 12100,
+    postedAgo: 15 * 24 * 60,
+    thumbnailUrl: "/crm/demo/tiktok-video-4.svg",
+  },
+];
+
+const TIKTOK_VIDEO: InboxPost = DEMO_TIKTOK_VIDEOS[0];
+
 type SeedMessage = {
   // Minutos antes de ahora
   ago: number;
@@ -318,14 +368,51 @@ export async function buildDemoSettings(accountId: number): Promise<MemorySettin
   return repo;
 }
 
+function tiktokSeeds(): SeedConversation[] {
+  const comment = (name: string, handle: string, ago: number, text: string, unread = 1): SeedConversation => ({
+    name,
+    channel: "ttc",
+    handle,
+    unread,
+    sinceAgo: ago,
+    sessions: 1,
+    post: TIKTOK_VIDEO,
+    messages: [{ ago, by: "in", text, type: "comment" }],
+  });
+  const dm = (name: string, handle: string, messages: SeedMessage[], unread = 1): SeedConversation => ({
+    name,
+    channel: "ttm",
+    handle,
+    unread,
+    sinceAgo: messages[0].ago,
+    sessions: 1,
+    messages,
+  });
+  return [
+    dm("Carolina Vega", "@caro.vega", [
+      { ago: 14, by: "in", text: "Hola! Vi su video de los tips, ¿tienen turnos para control de vista esta semana?" },
+    ]),
+    dm("Mateo Giménez", "@mateo.gmz", [
+      { ago: 3 * 60, by: "in", text: "Buenas, ¿los anteojos de sol del último video vienen con estuche?" },
+      { ago: 3 * 60 - 5, by: "in", text: "Y si hacen envío a Godoy Cruz 🙏" },
+    ], 2),
+    comment("Julieta Moreno", "@juli.mza", 8, "Tengo cara redonda, ¿cuáles me recomiendan? 😍"),
+    comment("Nico Herrera", "@nico_ok", 21, "¿Hacen envíos a Córdoba?"),
+    comment("Agus Paredes", "@agus.paredes", 47, "Me encantaron los del final, ¿cuánto salen?"),
+    comment("", "@lu.martinez", 2 * H, "¿Trabajan con obra social?", 0),
+  ];
+}
+
 // Arma un store en memoria con las conversaciones de ejemplo.
-export function buildDemoStore(meName: string, accountId = 1): MemoryInboxStore {
+// tiktok: suma los comentarios del prototipo de TikTok (solo superadmin en demo).
+export function buildDemoStore(meName: string, accountId = 1, opts: { tiktok?: boolean } = {}): MemoryInboxStore {
   const store = new MemoryInboxStore();
   store.defaultAccountId = accountId;
   const now = Math.floor(Date.now() / 1000);
   const at = (ago: number) => now - ago * 60;
 
-  seeds(meName).forEach((seed, index) => {
+  const all = opts.tiktok ? [...seeds(meName), ...tiktokSeeds()] : seeds(meName);
+  all.forEach((seed, index) => {
     const id = index + 1;
     const visible = seed.messages.filter((m) => m.by === "in" || m.by === "bot" || m.by === "agent");
     const last = visible[visible.length - 1];
@@ -363,7 +450,8 @@ export function buildDemoStore(meName: string, accountId = 1): MemoryInboxStore 
       const message: InboxMessage & { rawPayload: unknown } = {
         id: store.messages.length + 1,
         conversationId: id,
-        wamid: null,
+        // Los comentarios tienen id (como en Meta) para poder responder uno puntual.
+        wamid: m.type === "comment" ? `demo-comment-${store.messages.length + 1}` : null,
         direction: m.by === "in" ? "in" : m.by === "bot" || m.by === "agent" ? "out" : "internal",
         author: m.by === "in" ? "customer" : m.by,
         authorName: m.authorName ?? null,

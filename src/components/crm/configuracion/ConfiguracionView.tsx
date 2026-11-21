@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { getDemoInboxStore } from "@/components/admin/bandeja/demo-api";
 import { useCrmShell } from "@/components/crm/CrmShell";
+import { tiktokDemoEnabled } from "@/lib/crm/channels";
 import { getDemoSettings } from "@/components/crm/demo-settings";
 import Icon, { type IconName } from "@/components/crm/Icon";
 import { ProfilePanel, SoundsPanel, SupportPanel } from "./PersonalPanels";
 import { demoSubscription, SubscriptionPanel, type PlanOption, type SubscriptionView } from "./SubscriptionPanel";
+import { BillingPanel } from "./BillingPanel";
+import type { BillingOverview } from "@/lib/billing/overview";
 import { Modal } from "@/components/crm/Modal";
 import PageHeader, { PageBody } from "@/components/crm/PageHeader";
 import { useToast } from "@/components/crm/Toast";
@@ -65,8 +68,9 @@ function realClient(accountId: number): SettingsClient {
   };
 }
 
-function demoClient(accountId: number, me: { id: number; name: string }): SettingsClient {
-  const deps = async () => ({ repo: await getDemoSettings(accountId), store: getDemoInboxStore(me, accountId) });
+function demoClient(accountId: number, me: { id: number; name: string }, tiktok: boolean): SettingsClient {
+  // Mismo store que la bandeja (incluye el prototipo de TikTok si corresponde).
+  const deps = async () => ({ repo: await getDemoSettings(accountId), store: getDemoInboxStore(me, accountId, tiktok) });
   return {
     createLabel: async (body) => settingsLogic.createLabel(await deps(), accountId, body),
     updateLabel: async (id, body) => settingsLogic.updateLabel(await deps(), accountId, id, body),
@@ -85,6 +89,10 @@ export default function ConfiguracionView(props: {
   canManage: boolean;
   subscription: SubscriptionView | null;
   plans: PlanOption[];
+  // Cobro automático (dLocal Go): si viene, se muestra el panel nuevo en vez del manual.
+  billing?: BillingOverview | null;
+  // Cuenta suspendida por falta de pago: solo Suscripción (para pagar) y Soporte.
+  billingLocked?: boolean;
 }) {
   const { demo } = useCrmShell();
   return <Configuracion key={demo ? "demo" : "real"} {...props} demo={demo} />;
@@ -97,6 +105,8 @@ function Configuracion({
   canManage,
   subscription,
   plans,
+  billing = null,
+  billingLocked = false,
   demo,
 }: {
   account: { id: number; name: string };
@@ -105,13 +115,18 @@ function Configuracion({
   canManage: boolean;
   subscription: SubscriptionView | null;
   plans: PlanOption[];
+  billing?: BillingOverview | null;
+  billingLocked?: boolean;
   demo: boolean;
 }) {
   const { user } = useCrmShell();
   const toast = useToast();
   const client = useMemo(
-    () => (demo ? demoClient(account.id, { id: user.id, name: user.name }) : realClient(account.id)),
-    [demo, account.id, user.id, user.name]
+    () =>
+      demo
+        ? demoClient(account.id, { id: user.id, name: user.name }, tiktokDemoEnabled(demo, user.role))
+        : realClient(account.id),
+    [demo, account.id, user.id, user.name, user.role]
   );
   const [tab, setTab] = useState<Tab>(initialTab);
   const [labels, setLabels] = useState<Label[]>(initialState.kind === "ready" && !demo ? initialState.labels : []);
@@ -129,7 +144,7 @@ function Configuracion({
     });
   }, [demo, canManage, account.id]);
 
-  const tabs: { id: Tab; label: string; icon: IconName; count?: number }[] = [
+  const allTabs: { id: Tab; label: string; icon: IconName; count?: number }[] = [
     { id: "perfil", label: "Mi perfil", icon: "user" },
     { id: "sonidos", label: "Sonidos", icon: "bell" },
     ...(canManage
@@ -141,6 +156,7 @@ function Configuracion({
       : []),
     { id: "soporte", label: "Soporte", icon: "info" },
   ];
+  const tabs = billingLocked ? allTabs.filter((t) => t.id === "suscripcion" || t.id === "soporte") : allTabs;
 
   const changeTab = (next: Tab) => {
     setTab(next);
@@ -229,7 +245,11 @@ function Configuracion({
       )}
       {tab === "suscripcion" && canManage && (
         <div role="tabpanel" id="panel-suscripcion" aria-labelledby="tab-suscripcion">
-          <SubscriptionPanel account={account} subscription={demo ? demoSubscription() : subscription} plans={plans} />
+          {billing && !demo ? (
+            <BillingPanel account={account} initial={billing} billingLocked={billingLocked} />
+          ) : (
+            <SubscriptionPanel account={account} subscription={demo ? demoSubscription() : subscription} plans={plans} />
+          )}
         </div>
       )}
       {tab === "soporte" && (

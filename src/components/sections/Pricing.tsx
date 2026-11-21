@@ -1,12 +1,21 @@
 import { WA_LINKS } from "@/lib/whatsapp";
 import { getPlans } from "@/lib/pricing-plans";
+import { onlinePlanKeys } from "@/lib/billing/page-data";
 
-function planHref(planKey: string) {
-  return WA_LINKS[planKey as keyof typeof WA_LINKS] || WA_LINKS.general;
+// Con precio cargado (web_plan_prices) y dLocal Go configurado, "Elegir plan" va al
+// checkout propio; si no, sigue yendo a WhatsApp.
+function linkProps(planKey: string, online: Set<string>) {
+  if (online.has(planKey)) return { href: `/suscripcion/${planKey}`, "data-track": "checkout" };
+  return {
+    href: WA_LINKS[planKey as keyof typeof WA_LINKS] || WA_LINKS.general,
+    target: "_blank",
+    rel: "noreferrer noopener",
+    "data-track": "whatsapp",
+  };
 }
 
 export default async function Pricing() {
-  const plans = await getPlans();
+  const [plans, online] = await Promise.all([getPlans(), onlinePlanKeys()]);
 
   return (
     <section id="planes" className="bg-muted px-5 py-16 sm:px-8 md:py-24">
@@ -45,10 +54,7 @@ export default async function Pricing() {
                   <span className="text-base text-white/80">{plan.billingPeriod}</span>
                 </div>
                 <a
-                  href={planHref(plan.planKey)}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  data-track="whatsapp"
+                  {...linkProps(plan.planKey, online)}
                   data-location={`plan_${plan.planKey}`}
                   className="block rounded-full bg-white py-3.5 text-center font-poppins text-[15px] font-bold text-primary transition-colors hover:bg-secondary hover:text-secondary-foreground"
                 >
@@ -81,10 +87,7 @@ export default async function Pricing() {
                   <span className="text-base text-muted-foreground">{plan.billingPeriod}</span>
                 </div>
                 <a
-                  href={planHref(plan.planKey)}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  data-track="whatsapp"
+                  {...linkProps(plan.planKey, online)}
                   data-location={`plan_${plan.planKey}`}
                   className="block rounded-full border border-border bg-muted py-3.5 text-center font-poppins text-[15px] font-semibold text-foreground transition-colors hover:border-primary hover:text-primary"
                 >

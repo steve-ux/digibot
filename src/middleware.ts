@@ -55,8 +55,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
   }
 
-  // Públicas: login e invitaciones (la persona invitada todavía no tiene sesión).
+  // Públicas: login, invitaciones (la persona invitada todavía no tiene sesión) y el
+  // cobro (/api/billing: el checkout de un cliente nuevo y las notificaciones de dLocal
+  // Go no traen sesión; cada ruta valida lo suyo). Igual pasan por el control CSRF de arriba.
   const isPublic =
+    pathname.startsWith("/api/billing/") ||
     pathname === "/admin/login" ||
     pathname === "/api/admin/login" ||
     pathname === "/api/admin/invitacion" ||
@@ -93,7 +96,9 @@ export async function middleware(req: NextRequest) {
     }
   } else if (
     isApi &&
-    (pathname.startsWith("/api/admin/superadmins") || pathname.startsWith("/api/admin/whatsapp-cuentas")) &&
+    (pathname.startsWith("/api/admin/superadmins") ||
+      pathname.startsWith("/api/admin/whatsapp-cuentas") ||
+      pathname.startsWith("/api/admin/cobros")) &&
     session.role !== "superadmin"
   ) {
     return json(403, "forbidden", "No tenés permiso para hacer esto.");
@@ -103,5 +108,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/api/billing/:path*"],
 };

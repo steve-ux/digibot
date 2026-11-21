@@ -9,18 +9,28 @@ import { useToast } from "@/components/crm/Toast";
 import {
   PROVIDER_CHANNELS,
   type ChannelsOverview,
+  type AssetChoice,
   type ConnectedAccount,
-  type PageChoice,
   type ProviderId,
 } from "@/lib/channels/types";
-import { avatarColor, CHANNELS, initialsOf } from "@/lib/crm/channels";
+import { avatarColor, CHANNELS, initialsOf, tiktokDemoEnabled } from "@/lib/crm/channels";
+import { DEMO_TIKTOK_VIDEOS } from "@/lib/crm/demo-data";
 import { accountApi } from "@/lib/crm/permissions";
 import { loadFacebookSdk, runFacebookLogin } from "./facebook-sdk";
 import WhatsAppSignupModal, { WA_MODES, type SignupRequest, type WaMode, type WaModeOption } from "./WhatsAppSignup";
 
 export type ChannelsLoadState = { kind: "ready"; overview: ChannelsOverview } | { kind: "error"; message: string };
 
-const PROVIDERS: { id: ProviderId; name: string; icon: string; description: string; connectLabel: string; moreLabel: string }[] = [
+const PROVIDERS: {
+  id: ProviderId;
+  name: string;
+  icon: string;
+  description: string;
+  connectLabel: string;
+  moreLabel: string;
+  // Lo que hace falta antes de tocar Conectar (se muestra arriba del botón)
+  requirements?: string[];
+}[] = [
   {
     id: "whatsapp",
     name: "WhatsApp",
@@ -33,17 +43,23 @@ const PROVIDERS: { id: ProviderId; name: string; icon: string; description: stri
     id: "instagram",
     name: "Instagram",
     icon: CHANNELS.ig.icon,
-    description: "Mensajes directos y comentarios de tus publicaciones. Tiene que ser una cuenta profesional vinculada a una página.",
+    description: "Mensajes directos y comentarios de tus publicaciones, para responderlos desde la bandeja.",
     connectLabel: "Conectar Instagram",
     moreLabel: "Conectar otra cuenta",
+    requirements: [
+      "Una cuenta profesional de Instagram (de empresa o de creador).",
+      "Que la cuenta esté dentro de un portfolio comercial de Meta.",
+      "Activar en Instagram el acceso a mensajes para herramientas conectadas (Configuración → Mensajes).",
+    ],
   },
   {
     id: "facebook",
     name: "Facebook",
     icon: CHANNELS.fbc.icon,
     description: "Mensajes de Messenger y comentarios en las publicaciones de tu página.",
-    connectLabel: "Conectar página",
+    connectLabel: "Conectar Facebook",
     moreLabel: "Conectar otra página",
+    requirements: ["Ser admin de la página de Facebook que vas a conectar."],
   },
   {
     id: "threads",
@@ -73,7 +89,7 @@ const COMING_SOON: { id: string; name: string; icon: string; description: string
     id: "tiktok",
     name: "TikTok",
     icon: "/crm/channels/log_tiktok.avif",
-    description: "Mensajes y comentarios de tu cuenta de TikTok, para no perderte ninguna consulta.",
+    description: "Mensajes directos y comentarios de tus videos de TikTok, para no perderte ninguna consulta.",
   },
 ];
 
@@ -101,17 +117,17 @@ function demoOverview(): ChannelsOverview {
   return {
     accounts: [
       { key: "demo:wa", provider: "whatsapp", title: "+54 9 261 555-0100", subtitle: "Óptica Sol", pictureUrl: null, connectedAt: now - 40 * 86400, expiresAt: null, fromEnv: false },
-      { key: "demo:ig", provider: "instagram", title: "@opticasol", subtitle: "Vinculado a la página Óptica Sol", pictureUrl: null, connectedAt: now - 20 * 86400, expiresAt: null, fromEnv: false },
+      { key: "demo:ig", provider: "instagram", title: "@opticasol", subtitle: "Mensajes directos y comentarios", pictureUrl: null, connectedAt: now - 20 * 86400, expiresAt: null, fromEnv: false },
       { key: "demo:fb", provider: "facebook", title: "Óptica Sol", subtitle: "Messenger y comentarios de la página", pictureUrl: null, connectedAt: now - 20 * 86400, expiresAt: null, fromEnv: false },
     ],
     availability: { whatsapp: available, facebook: available, instagram: available, threads: available },
-    meta: { appId: null, graphVersion: "v23.0", whatsappConfigId: null, whatsappEsVersion: "v5", loginConfigId: null },
+    meta: { appId: null, graphVersion: "v23.0", whatsappConfigId: null, whatsappEsVersion: "v5", loginConfigId: null, instagramConfigId: null },
   };
 }
 
 const DEMO_NEW: Record<ProviderId, Omit<ConnectedAccount, "key" | "connectedAt">> = {
   whatsapp: { provider: "whatsapp", title: "+54 9 261 555-0199", subtitle: "Óptica Sol · Sucursal Centro", pictureUrl: null, expiresAt: null, fromEnv: false },
-  instagram: { provider: "instagram", title: "@opticasol.centro", subtitle: "Vinculado a la página Óptica Sol Centro", pictureUrl: null, expiresAt: null, fromEnv: false },
+  instagram: { provider: "instagram", title: "@opticasol.centro", subtitle: "Mensajes directos y comentarios", pictureUrl: null, expiresAt: null, fromEnv: false },
   facebook: { provider: "facebook", title: "Óptica Sol Centro", subtitle: "Messenger y comentarios de la página", pictureUrl: null, expiresAt: null, fromEnv: false },
   threads: { provider: "threads", title: "@opticasol", subtitle: "Respuestas a tus hilos", pictureUrl: null, expiresAt: Math.floor(Date.now() / 1000) + 60 * 86400, fromEnv: false },
 };
@@ -124,8 +140,8 @@ export default function CanalesView(props: {
   // Sesión de Embedded Signup creada al abrir la página
   initialSignupSessionId: string | null;
 }) {
-  const { demo } = useCrmShell();
-  return <Canales key={demo ? "demo" : "real"} {...props} demo={demo} />;
+  const { demo, user } = useCrmShell();
+  return <Canales key={demo ? "demo" : "real"} {...props} demo={demo} tiktok={tiktokDemoEnabled(demo, user.role)} />;
 }
 
 function Canales({
@@ -133,29 +149,35 @@ function Canales({
   initialState,
   initialSignupSessionId,
   demo,
+  tiktok,
 }: {
   accountId: number;
   initialState: ChannelsLoadState;
   initialSignupSessionId: string | null;
   demo: boolean;
+  // Prototipo de TikTok (solo superadmin en demo)
+  tiktok: boolean;
 }) {
   const toast = useToast();
   const [overview, setOverview] = useState<ChannelsOverview | null>(
     demo ? demoOverview() : initialState.kind === "ready" ? initialState.overview : null
   );
   const [busy, setBusy] = useState<ProviderId | null>(null);
-  const [picker, setPicker] = useState<{ provider: ProviderId; pages: PageChoice[]; selection: string } | null>(null);
+  const [picker, setPicker] = useState<PickerState | null>(null);
   const [toRemove, setToRemove] = useState<ConnectedAccount | null>(null);
   const [removing, setRemoving] = useState(false);
   const [signup, setSignup] = useState<SignupRequest | null>(null);
 
   // El SDK se precarga: FB.login tiene que salir directo del click (si no, el navegador bloquea el popup).
   const sdkConfig = overview?.meta;
-  const waAvailable = overview?.availability.whatsapp.available ?? false;
+  const metaAvailable = Boolean(
+    overview &&
+      (overview.availability.whatsapp.available || overview.availability.facebook.available || overview.availability.instagram.available)
+  );
   useEffect(() => {
-    if (demo || !sdkConfig?.appId || !waAvailable) return;
+    if (demo || !sdkConfig?.appId || !metaAvailable) return;
     loadFacebookSdk(sdkConfig).catch(() => undefined);
-  }, [demo, sdkConfig, waAvailable]);
+  }, [demo, sdkConfig, metaAvailable]);
 
   // Vuelta de Threads: ?conectado=@usuario o ?error=...
   useEffect(() => {
@@ -203,16 +225,26 @@ function Canales({
     }
     setBusy(provider);
     try {
-      const code = await runFacebookLogin(overview.meta);
+      const instagram = provider === "instagram";
+      // Cada uno tiene su configuración de Facebook Login for Business.
+      const code = await runFacebookLogin(overview.meta, instagram ? overview.meta.instagramConfigId : overview.meta.loginConfigId);
       if (!code) {
         toast("Se canceló la conexión. Cuando quieras, probá de nuevo.");
         return;
       }
-      const data = await call<{ pages: PageChoice[]; selection: string }>(accountApi(accountId, "canales/facebook/paginas"), {
-        method: "POST",
-        body: JSON.stringify({ code }),
-      });
-      setPicker({ provider, ...data });
+      if (instagram) {
+        const data = await call<{ accounts: AssetChoice[]; selection: string }>(accountApi(accountId, "canales/instagram/cuentas"), {
+          method: "POST",
+          body: JSON.stringify({ code }),
+        });
+        setPicker({ provider: "instagram", items: data.accounts, selection: data.selection });
+      } else {
+        const data = await call<{ pages: AssetChoice[]; selection: string }>(accountApi(accountId, "canales/facebook/paginas"), {
+          method: "POST",
+          body: JSON.stringify({ code }),
+        });
+        setPicker({ provider: "facebook", items: data.pages, selection: data.selection });
+      }
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
@@ -274,9 +306,9 @@ function Canales({
               }
             />
           ))}
-          {COMING_SOON.map((c) => (
-            <SoonCard key={c.id} channel={c} />
-          ))}
+          {COMING_SOON.map((c) =>
+            c.id === "tiktok" && tiktok ? <TikTokDemoCard key={c.id} channel={c} /> : <SoonCard key={c.id} channel={c} />
+          )}
         </div>
       )}
 
@@ -293,7 +325,7 @@ function Canales({
         />
       )}
 
-      <PagePicker
+      <AssetPicker
         state={picker}
         accountId={accountId}
         onClose={() => setPicker(null)}
@@ -466,6 +498,17 @@ function ProviderCard({
         </ul>
       )}
 
+      {provider.requirements && (
+        <div className="rounded-field bg-crm-surf px-3.5 py-3">
+          <div className="mb-1.5 text-xs font-semibold text-crm-ink-2">Antes de conectar</div>
+          <ul className="m-0 flex list-disc flex-col gap-1 pl-4 text-xs leading-[1.4] text-crm-ink-2">
+            {provider.requirements.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {availability.available && modes && onPickMode ? (
         <ModePicker modes={modes} connected={connected} disabled={disabled} onPick={onPickMode} />
       ) : availability.available ? (
@@ -591,55 +634,216 @@ function SoonCard({ channel }: { channel: (typeof COMING_SOON)[number] }) {
   );
 }
 
-// Después del login de Facebook: elegir qué páginas y qué Instagram conectar.
-function PagePicker({
+// Prototipo de TikTok (solo superadmin en modo demo), para el video de revisión
+// de TikTok. No llama a ninguna API: la autorización se simula.
+function TikTokDemoCard({ channel }: { channel: (typeof COMING_SOON)[number] }) {
+  const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [account, setAccount] = useState<{ title: string; connectedAt: number } | null>(null);
+
+  const authorize = async () => {
+    setBusy(true);
+    await new Promise((r) => setTimeout(r, 1400));
+    setBusy(false);
+    setConfirming(false);
+    setAccount({ title: "@cuenta_demo", connectedAt: Math.floor(Date.now() / 1000) });
+    toast("Listo: @cuenta_demo conectado (demo)");
+  };
+
+  const connected = account !== null;
+  return (
+    <article
+      aria-labelledby={`prov-${channel.id}`}
+      className="flex flex-col gap-3.5 rounded-card border border-crm-border bg-crm-card p-[22px]"
+    >
+      <div className="flex items-center gap-3">
+        <img src={channel.icon} alt="" width={40} height={40} className="block h-10 w-10 shrink-0 object-contain" />
+        <div className="min-w-0 flex-1">
+          <h2 id={`prov-${channel.id}`} className="m-0 font-poppins text-base font-semibold text-crm-ink">
+            {channel.name}
+          </h2>
+          <div className={`flex items-center gap-1.5 text-[13px] font-semibold ${connected ? "text-crm-success-ink" : "text-crm-muted"}`}>
+            <span aria-hidden className={`h-[7px] w-[7px] rounded-full ${connected ? "bg-crm-success" : "bg-crm-subtle"}`} />
+            {connected ? `Conectado · ${account.title}` : "Sin conectar"}
+          </div>
+        </div>
+      </div>
+
+      <p className="m-0 flex-1 text-sm leading-[1.45] text-crm-ink-2">{channel.description}</p>
+
+      <div className="flex flex-wrap items-center gap-1.5 text-xs text-crm-muted">
+        <span>En la bandeja:</span>
+        {["Mensajes directos", "Comentarios"].map((label) => (
+          <span key={label} className="flex items-center gap-1 rounded-pill bg-crm-surf px-2 py-[3px] font-semibold text-crm-ink-2">
+            <img src={channel.icon} alt="" width={14} height={14} />
+            {label}
+          </span>
+        ))}
+      </div>
+
+      {account ? (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          <li className="flex items-center gap-2.5 rounded-field bg-crm-surf px-3 py-2.5">
+            <span
+              aria-hidden
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+              style={{ background: avatarColor(account.title.length) }}
+            >
+              {initialsOf(account.title)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-crm-ink">{account.title}</div>
+              <div className="truncate text-xs text-crm-muted">Cuenta de empresa · conectada el {formatDate(account.connectedAt)}</div>
+            </div>
+            <button
+              onClick={() => {
+                setAccount(null);
+                toast(`${account.title} desconectado`);
+              }}
+              className="min-h-[36px] shrink-0 rounded-pill px-2 text-[13px] font-semibold text-crm-muted transition-colors hover:text-crm-error"
+            >
+              Desconectar
+            </button>
+          </li>
+        </ul>
+      ) : null}
+
+      {account && <TikTokVideos />}
+
+      {!account && (
+        <button
+          onClick={() => setConfirming(true)}
+          className="h-11 rounded-pill bg-crm-primary font-poppins text-sm font-semibold text-white transition-colors hover:bg-crm-primary-hover"
+        >
+          Conectar TikTok
+        </button>
+      )}
+
+      <Modal
+        open={confirming}
+        onClose={() => !busy && setConfirming(false)}
+        title="Conectar TikTok"
+        description="Te vamos a redirigir a TikTok para que autorices a DigiBot a acceder a tu cuenta de empresa."
+        maxWidth={480}
+        footer={
+          <div className="flex flex-wrap justify-end gap-2.5">
+            <button
+              onClick={() => setConfirming(false)}
+              disabled={busy}
+              className="h-[46px] rounded-pill border border-crm-border-2 bg-crm-chip px-[22px] font-poppins text-sm font-semibold text-crm-ink"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={authorize}
+              disabled={busy}
+              aria-busy={busy}
+              className="h-[46px] rounded-pill bg-crm-primary px-6 font-poppins text-sm font-semibold text-white hover:bg-crm-primary-hover disabled:opacity-60"
+            >
+              {busy ? "Conectando…" : "Continuar"}
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-2 rounded-field bg-crm-surf px-3.5 py-3 text-[13px] leading-[1.45] text-crm-ink-2">
+          <div className="font-semibold text-crm-ink">DigiBot va a poder:</div>
+          <ul className="m-0 flex list-disc flex-col gap-1 pl-4">
+            <li>Ver la información básica de tu cuenta de empresa.</li>
+            <li>Ver los videos que publicaste.</li>
+            <li>Leer los comentarios de tus videos y responderlos.</li>
+            <li>Recibir y responder tus mensajes directos.</li>
+          </ul>
+          <div className="text-xs text-crm-muted">Podés desconectar la cuenta cuando quieras desde esta pantalla.</div>
+        </div>
+      </Modal>
+    </article>
+  );
+}
+
+// Videos de la cuenta conectada (prototipo): miniatura, vistas y comentarios.
+function TikTokVideos() {
+  const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toLocaleString("es-AR", { maximumFractionDigits: 1 })} mil` : String(n));
+  const now = Date.now();
+  return (
+    <section aria-labelledby="tt-videos" className="flex flex-col gap-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 id="tt-videos" className="m-0 font-poppins text-[15px] font-semibold text-crm-ink">
+          Tus videos
+        </h3>
+        <span className="text-xs text-crm-muted">{DEMO_TIKTOK_VIDEOS.length} recientes</span>
+      </div>
+      <ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 sm:grid-cols-4">
+        {DEMO_TIKTOK_VIDEOS.map((v) => (
+          <li key={v.id} className="flex min-w-0 flex-col gap-1.5">
+            <div className="relative overflow-hidden rounded-[10px] bg-crm-surf">
+              <img src={v.thumbnailUrl ?? ""} alt="" className="block aspect-[9/16] w-full object-cover" />
+              <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-pill bg-black/60 px-1.5 py-[2px] text-[11px] font-semibold text-white">
+                ▶ {compact(v.views)}
+              </span>
+            </div>
+            <p className="m-0 line-clamp-2 text-xs leading-[1.35] text-crm-ink-2" title={v.caption}>
+              {v.caption}
+            </p>
+            <div className="text-[11px] text-crm-muted">
+              {v.comments} comentarios · {new Date(now - v.postedAgo * 60000).toLocaleDateString("es-AR", { day: "numeric", month: "short" })}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+type PickerState = { provider: "facebook" | "instagram"; items: AssetChoice[]; selection: string };
+
+// Después del login: elegir qué páginas (Facebook) o cuentas (Instagram) conectar.
+function AssetPicker({
   state,
   accountId,
   onClose,
   onDone,
 }: {
-  state: { provider: ProviderId; pages: PageChoice[]; selection: string } | null;
+  state: PickerState | null;
   accountId: number;
   onClose: () => void;
   onDone: (accounts: ConnectedAccount[]) => void;
 }) {
-  type Pick = { facebook: boolean; instagram: boolean };
+  const instagram = state?.provider === "instagram";
   const initial = useMemo(() => {
-    const picks: Record<string, Pick> = {};
-    for (const p of state?.pages ?? []) {
-      const wantsIg = state?.provider === "instagram";
-      picks[p.id] = {
-        facebook: !wantsIg && !p.takenElsewhere.facebook && !p.connectedHere.facebook && (state?.pages.length ?? 0) === 1,
-        instagram: wantsIg && Boolean(p.instagram) && !p.takenElsewhere.instagram && !p.connectedHere.instagram,
-      };
-    }
-    return picks;
+    const free = (state?.items ?? []).filter((i) => !i.connectedHere && !i.takenElsewhere);
+    // Si hay una sola disponible, ya viene marcada.
+    return new Set(free.length === 1 ? [free[0].id] : []);
   }, [state]);
-  const [picks, setPicks] = useState<Record<string, Pick>>(initial);
+  const [picked, setPicked] = useState<Set<string>>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    setPicks(initial);
+    setPicked(initial);
     setError(null);
   }, [initial]);
 
-  const toggle = (pageId: string, key: keyof Pick) =>
-    setPicks((prev) => ({ ...prev, [pageId]: { ...prev[pageId], [key]: !prev[pageId]?.[key] } }));
+  const toggle = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const save = async () => {
     if (!state) return;
-    const choices = Object.entries(picks).map(([pageId, p]) => ({ pageId, ...p }));
-    if (!choices.some((c) => c.facebook || c.instagram)) {
-      setError("Elegí al menos una página o cuenta de Instagram.");
+    if (picked.size === 0) {
+      setError(instagram ? "Elegí al menos una cuenta de Instagram." : "Elegí al menos una página.");
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      const { accounts } = await call<{ accounts: ConnectedAccount[] }>(accountApi(accountId, "canales/facebook"), {
-        method: "POST",
-        body: JSON.stringify({ selection: state.selection, choices }),
-      });
+      const { accounts } = await call<{ accounts: ConnectedAccount[] }>(
+        accountApi(accountId, instagram ? "canales/instagram" : "canales/facebook"),
+        { method: "POST", body: JSON.stringify({ selection: state.selection, choices: Array.from(picked) }) }
+      );
       onDone(accounts);
     } catch (err) {
       setError((err as Error).message);
@@ -648,42 +852,17 @@ function PagePicker({
     }
   };
 
-  const option = (
-    pageId: string,
-    key: keyof Pick,
-    label: string,
-    icon: string,
-    connectedHere: boolean,
-    taken: boolean
-  ) => {
-    const id = `pick-${pageId}-${key}`;
-    return (
-      <label
-        htmlFor={id}
-        className={`flex min-h-[44px] items-center gap-2.5 rounded-field px-2.5 ${taken || connectedHere ? "opacity-60" : "cursor-pointer hover:bg-crm-surf"}`}
-      >
-        <input
-          id={id}
-          type="checkbox"
-          disabled={taken || connectedHere}
-          checked={connectedHere || Boolean(picks[pageId]?.[key])}
-          onChange={() => toggle(pageId, key)}
-          className="h-5 w-5 shrink-0 accent-[var(--crm-primary)]"
-        />
-        <img src={icon} alt="" width={20} height={20} />
-        <span className="min-w-0 flex-1 truncate text-sm text-crm-ink">{label}</span>
-        {connectedHere && <span className="shrink-0 text-xs font-semibold text-crm-success-ink">Ya conectada</span>}
-        {taken && <span className="shrink-0 text-xs font-semibold text-crm-muted">En otra cuenta</span>}
-      </label>
-    );
-  };
-
+  const icon = instagram ? CHANNELS.ig.icon : CHANNELS.fbc.icon;
   return (
     <Modal
       open={state !== null}
       onClose={() => !saving && onClose()}
-      title="¿Qué querés conectar?"
-      description="Estas son las páginas a las que nos diste acceso. Elegí la página y/o su Instagram."
+      title={instagram ? "¿Qué cuenta de Instagram querés conectar?" : "¿Qué página querés conectar?"}
+      description={
+        instagram
+          ? "Estas son las cuentas de Instagram a las que nos diste acceso. Llegan sus mensajes directos y comentarios."
+          : "Estas son las páginas a las que nos diste acceso. Llegan sus mensajes de Messenger y comentarios."
+      }
       maxWidth={560}
       footer={
         <div className="flex flex-wrap justify-end gap-2.5">
@@ -704,29 +883,37 @@ function PagePicker({
         </div>
       }
     >
-      <div className="flex flex-col gap-3">
-        {state?.pages.map((p) => (
-          <div key={p.id} className="rounded-[14px] border border-crm-border p-3">
-            <div className="mb-1 flex items-center gap-2.5 px-1">
-              {p.pictureUrl ? (
-                <img src={p.pictureUrl} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
+      <div className="flex flex-col gap-2">
+        {state?.items.map((item) => {
+          const id = `pick-${item.id}`;
+          const locked = item.connectedHere || item.takenElsewhere;
+          return (
+            <label
+              key={item.id}
+              htmlFor={id}
+              className={`flex min-h-[52px] items-center gap-3 rounded-[14px] border border-crm-border px-3 ${
+                locked ? "opacity-60" : "cursor-pointer hover:bg-crm-surf"
+              }`}
+            >
+              <input
+                id={id}
+                type="checkbox"
+                disabled={locked}
+                checked={item.connectedHere || picked.has(item.id)}
+                onChange={() => toggle(item.id)}
+                className="h-5 w-5 shrink-0 accent-[var(--crm-primary)]"
+              />
+              {item.pictureUrl ? (
+                <img src={item.pictureUrl} alt="" width={28} height={28} className="h-7 w-7 shrink-0 rounded-full object-cover" />
               ) : (
-                <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-crm-surf text-xs font-bold text-crm-ink-2">
-                  {initialsOf(p.name)}
-                </span>
+                <img src={icon} alt="" width={22} height={22} className="shrink-0" />
               )}
-              <span className="truncate font-semibold text-crm-ink">{p.name}</span>
-            </div>
-            {option(p.id, "facebook", "Messenger y comentarios de la página", CHANNELS.fbc.icon, p.connectedHere.facebook, p.takenElsewhere.facebook)}
-            {p.instagram ? (
-              option(p.id, "instagram", `Instagram @${p.instagram.username}`, CHANNELS.ig.icon, p.connectedHere.instagram, p.takenElsewhere.instagram)
-            ) : (
-              <p className="m-0 px-2.5 py-2 text-xs text-crm-muted">
-                Esta página no tiene una cuenta profesional de Instagram vinculada.
-              </p>
-            )}
-          </div>
-        ))}
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-crm-ink">{item.name}</span>
+              {item.connectedHere && <span className="shrink-0 text-xs font-semibold text-crm-success-ink">Ya conectada</span>}
+              {item.takenElsewhere && <span className="shrink-0 text-xs font-semibold text-crm-muted">En otra cuenta</span>}
+            </label>
+          );
+        })}
         {error && (
           <p role="alert" className="m-0 rounded-field bg-crm-error-bg px-3 py-2 text-sm text-crm-error-ink">
             {error}

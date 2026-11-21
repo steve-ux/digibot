@@ -1,7 +1,7 @@
 // Preferencias de sonido de cada persona (Configuración → Sonidos). Sin imports
 // de servidor: lo usan la API (para validar) y el navegador (para sonar).
 
-import { CHANNEL_IDS, type ChannelId } from "./channels";
+import { CHANNEL_IDS, type ChannelId, type RealChannelId } from "./channels";
 
 export const SOUND_IDS = ["bubble", "chime", "ding", "pop", "sparkle", "knock", "click", "drop", "pluck", "blip"] as const;
 export type SoundId = (typeof SOUND_IDS)[number];
@@ -24,7 +24,8 @@ export const SOUND_LABELS: Record<SoundId, string> = {
 // Canales que todavía no se conectan (YouTube, Telegram, TikTok): ya se les puede
 // elegir sonido para cuando lleguen.
 export type UpcomingChannelId = "yt" | "tg" | "tt";
-export type SoundChannelId = ChannelId | UpcomingChannelId;
+// "ttm"/"ttc" (prototipo de TikTok del modo demo) no se guardan: usan el sonido de "tt".
+export type SoundChannelId = RealChannelId | UpcomingChannelId;
 
 export const UPCOMING_SOUND_CHANNELS: { id: UpcomingChannelId; name: string; icon: string }[] = [
   { id: "yt", name: "YouTube", icon: "/crm/channels/YouTube-logo.png" },
@@ -79,7 +80,7 @@ export function normalizeSoundPrefs(value: unknown): SoundPrefs {
 // Sonido que corresponde a un canal (null = sonidos apagados, volumen 0 o canal sin sonido).
 export function soundFor(prefs: SoundPrefs, channel: ChannelId): SoundId | null {
   if (!prefs.enabled || prefs.volume === 0) return null;
-  const sound = prefs.channels[channel];
+  const sound = prefs.channels[channel === "ttc" || channel === "ttm" ? "tt" : channel];
   return sound && sound !== "off" ? sound : null;
 }
 

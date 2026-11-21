@@ -38,6 +38,7 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
         roleLabel: ROLE_LABELS[user.role],
         accountId: user.accountId,
         bootstrap: Boolean(user.bootstrap),
+        billingLocked: Boolean(user.billingLocked),
       }}
       accounts={accounts}
       initialDemo={demo}

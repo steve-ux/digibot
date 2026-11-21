@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth";
 import { getMySqlAccountsRepo } from "@/lib/crm/accounts-mysql";
 import { clearRateLimit, clientIp, hitRateLimit } from "@/lib/crm/rate-limit";
-import { BOOTSTRAP_USER_ID, homePath, isBootstrapMode } from "@/lib/crm/session";
+import { BOOTSTRAP_USER_ID, billingPagePath, homePath, isBillingSuspended, isBootstrapMode } from "@/lib/crm/session";
 import { authenticate, sessionFor } from "@/lib/crm/team";
 import { getMySqlUsersRepo } from "@/lib/crm/users-mysql";
 import { isDbConfigured } from "@/lib/db";
@@ -43,9 +43,22 @@ export async function POST(req: NextRequest) {
         // Cuenta suspendida: no entra nadie de esa cuenta (el superadmin no tiene cuenta).
         if (user.role !== "superadmin" && user.accountId !== null) {
           const account = await getMySqlAccountsRepo().get(user.accountId);
+          const billingLocked = account?.status === "suspended" && user.role === "admin" && (await isBillingSuspended(account.id));
+          if (billingLocked) {
+            const res = NextResponse.json({ ok: true, role: user.role, home: billingPagePath(account!.id) });
+            res.cookies.set(SESSION_COOKIE, await createSessionToken(sessionFor(user)), sessionCookieOptions);
+            clearRateLimit(limitKey);
+            return res;
+          }
           if (!account || account.status === "suspended") {
             return NextResponse.json(
-              { error: "account_suspended", message: "Esta cuenta está suspendida. Escribinos a DigiBot para reactivarla." },
+              {
+                error: "account_suspended",
+                message:
+                  user.role === "admin"
+                    ? "Esta cuenta está suspendida. Escribinos a DigiBot para reactivarla."
+                    : "Esta cuenta está suspendida. Pedile a quien la administra que la reactive.",
+              },
               { status: 403 }
             );
           }

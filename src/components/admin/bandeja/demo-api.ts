@@ -22,22 +22,23 @@ export function demoTeam(me: TeamMember): TeamMember[] {
   return [me, ...DEMO_TEAMMATES];
 }
 
-function ensure(me: TeamMember, accountId: number) {
-  const key = `${me.id}:${me.name}:${accountId}`;
+// tiktok: prototipo de TikTok, solo para superadmin en demo.
+function ensure(me: TeamMember, accountId: number, tiktok: boolean) {
+  const key = `${me.id}:${me.name}:${accountId}:${tiktok ? "tt" : ""}`;
   if (!instance || instance.key !== key) {
-    const store = buildDemoStore(me.name, accountId);
+    const store = buildDemoStore(me.name, accountId, { tiktok });
     instance = { key, store, api: createDemoApi(me, accountId, store) };
   }
   return instance;
 }
 
-export function getDemoApi(me: TeamMember, accountId: number): InboxApi {
-  return ensure(me, accountId).api;
+export function getDemoApi(me: TeamMember, accountId: number, tiktok = false): InboxApi {
+  return ensure(me, accountId, tiktok).api;
 }
 
 // Configuración (en demo) renombra o borra etiquetas sobre las mismas conversaciones.
-export function getDemoInboxStore(me: TeamMember, accountId: number): MemoryInboxStore {
-  return ensure(me, accountId).store;
+export function getDemoInboxStore(me: TeamMember, accountId: number, tiktok = false): MemoryInboxStore {
+  return ensure(me, accountId, tiktok).store;
 }
 
 function createDemoApi(me: TeamMember, accountId: number, store: MemoryInboxStore): InboxApi {
@@ -54,7 +55,8 @@ function createDemoApi(me: TeamMember, accountId: number, store: MemoryInboxStor
     conversationId: number,
     body: string,
     type: string,
-    templateName: string | null = null
+    templateName: string | null = null,
+    inReplyTo: string | null = null
   ): Promise<SendResponse> => {
     const at = nowUnix();
     const id = await store.insertMessage({
@@ -68,6 +70,7 @@ function createDemoApi(me: TeamMember, accountId: number, store: MemoryInboxStor
       templateName,
       status: "sent",
       messageAt: at,
+      inReplyTo,
     });
     if (id === null) throw new Error("demo");
     await store.recordActivity(conversationId, { preview: body, at, inbound: false, author: "agent" });
@@ -122,11 +125,29 @@ function createDemoApi(me: TeamMember, accountId: number, store: MemoryInboxStor
                 : "comment_reply"
               : "text";
           const kind = type === "comment_reply" ? "comment_public" : type === "private_reply" ? "comment_private" : "message";
-          const availability = replyAvailability(conversation, kind);
+          // Mismas reglas que el servidor: a qué comentario y una sola respuesta privada por comentario.
+          let commentId: string | null = null;
+          let commentAt: number | null = null;
+          if (isCommentChannel(conversation.channel)) {
+            const recent = await store.listMessages(conversationId, 0, 200);
+            const comments = recent.filter((m) => m.direction === "in" && m.wamid);
+            const target = payload.commentId
+              ? comments.find((m) => m.wamid === payload.commentId)
+              : [...comments].reverse().find((m) => !m.deletedAt);
+            commentId = target?.wamid ?? null;
+            commentAt = target?.messageAt ?? null;
+            if (type === "private_reply" && commentId && (await store.hasPrivateReply(commentId))) {
+              return {
+                saved: null,
+                error: { code: "already_replied", message: "Ya respondiste por privado a este comentario. Meta permite una sola." },
+              };
+            }
+          }
+          const availability = replyAvailability(conversation, kind, undefined, { commentAt });
           if (!availability.allowed) {
             return { saved: null, error: { code: "window_closed", message: availability.reason ?? "" } };
           }
-          return outgoing(conversationId, payload.body.trim(), type);
+          return outgoing(conversationId, payload.body.trim(), type, null, commentId);
         }
       }
     },

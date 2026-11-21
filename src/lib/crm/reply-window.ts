@@ -2,8 +2,9 @@
 // el servidor (para no depender de la UI) y por el composer. Sin imports de servidor.
 //
 //   WhatsApp ............ 24 h desde el último mensaje del cliente; después, solo plantillas.
-//   Instagram/Messenger . 24 h libres; de 24 h a 7 días solo con la etiqueta HUMAN_AGENT
-//                         (responde una persona); después de 7 días, nada.
+//   Instagram/Messenger . 24 h libres; después, "Ventana cerrada" hasta que el cliente vuelva a escribir.
+//                         Con humanAgent (META_HUMAN_AGENT_ENABLED=on, cuando Meta apruebe el permiso)
+//                         una persona puede responder hasta 7 días con la etiqueta HUMAN_AGENT.
 //   Comentarios IG / FB . respuesta pública siempre; respuesta privada hasta 7 días
 //                         después del comentario (y una sola por comentario).
 //   Threads ............. solo respuesta pública (la API no tiene mensajes privados).
@@ -31,12 +32,24 @@ const CHANNEL_NAMES: Record<ChannelId, string> = {
   fb: "Messenger",
   fbc: "Facebook",
   th: "Threads",
+  ttm: "TikTok",
+  ttc: "TikTok",
 };
+
+export interface ReplyOptions {
+  // Etiqueta HUMAN_AGENT habilitada (permiso aprobado por Meta). Apagada por defecto.
+  humanAgent?: boolean;
+  // Respuesta por privado: cuándo se hizo el comentario (si no viene, el último mensaje del cliente)
+  commentAt?: number | null;
+}
+
+export const WINDOW_CLOSED_TITLE = "Ventana cerrada";
 
 export function replyAvailability(
   c: { channel: ChannelId; lastInboundAt: number | null; windowSecondsLeft: number },
   kind: ReplyKind,
-  nowUnix = Math.floor(Date.now() / 1000)
+  nowUnix = Math.floor(Date.now() / 1000),
+  options: ReplyOptions = {}
 ): ReplyAvailability {
   const ok = (humanAgent = false): ReplyAvailability => ({ allowed: true, humanAgent, reason: null });
   const no = (reason: string): ReplyAvailability => ({ allowed: false, humanAgent: false, reason });
@@ -51,14 +64,15 @@ export function replyAvailability(
   if (isCommentChannel(c.channel)) {
     if (kind !== "comment_private") return ok();
     if (!supportsPrivateReply(c.channel)) return no(`${CHANNEL_NAMES[c.channel]} no permite responder por privado.`);
-    return age <= HUMAN_AGENT_WINDOW_SECONDS
+    const commentAge = options.commentAt != null ? nowUnix - options.commentAt : age;
+    return commentAge <= HUMAN_AGENT_WINDOW_SECONDS
       ? ok()
       : no("Pasaron más de 7 días desde el comentario: ya no se puede responder por privado.");
   }
 
   if (age <= STANDARD_WINDOW_SECONDS) return ok();
-  if (age <= HUMAN_AGENT_WINDOW_SECONDS) return ok(true);
+  if (options.humanAgent && age <= HUMAN_AGENT_WINDOW_SECONDS) return ok(true);
   return no(
-    `Pasaron más de 7 días desde su último mensaje. ${CHANNEL_NAMES[c.channel]} no deja responder hasta que te vuelva a escribir.`
+    `${WINDOW_CLOSED_TITLE}: pasaron más de 24 h desde su último mensaje. ${CHANNEL_NAMES[c.channel]} no deja responder hasta que te vuelva a escribir.`
   );
 }

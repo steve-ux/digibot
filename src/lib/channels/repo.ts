@@ -4,6 +4,9 @@
 // sirve para tests.
 
 export type SocialKind = "fb" | "ig" | "th";
+// page: token de página (Messenger, Instagram viejo vinculado a una página).
+// ig_unified: Instagram API with Unified Login (token de usuario del sistema, sin página).
+export type SocialAuthType = "page" | "ig_unified";
 
 export interface SocialRecord {
   id: number;
@@ -11,8 +14,12 @@ export interface SocialRecord {
   channel: SocialKind;
   // page_id (fb) · ig_user_id (ig) · threads user id (th): el entry.id de los webhooks
   externalId: string;
-  // Página que envía (fb e ig); Threads no tiene
+  // Página que envía (fb e ig por página); Threads e Instagram con Unified Login no tienen
   pageId: string | null;
+  authType: SocialAuthType;
+  // Portfolio comercial del cliente (Unified Login) y configuración de login usada
+  businessId: string | null;
+  configId: string | null;
   displayName: string | null;
   accessToken: string;
   tokenExpiresAt: number | null;
@@ -22,7 +29,8 @@ export interface SocialRecord {
   connectedAt: number;
 }
 
-export type NewSocial = Omit<SocialRecord, "id" | "connectedAt"> & { connectedBy: number | null };
+export type NewSocial = Omit<SocialRecord, "id" | "connectedAt" | "authType" | "businessId" | "configId"> &
+  Partial<Pick<SocialRecord, "authType" | "businessId" | "configId">> & { connectedBy: number | null };
 
 export interface ChannelsRepo {
   listSocial(accountId: number): Promise<SocialRecord[]>;
@@ -49,7 +57,8 @@ export class MemoryChannelsRepo implements ChannelsRepo {
     const { active: _a, ...rest } = s;
     return rest;
   }
-  async saveSocial({ connectedBy: _c, ...record }: NewSocial) {
+  async saveSocial({ connectedBy: _c, ...input }: NewSocial) {
+    const record = { authType: "page" as const, businessId: null, configId: null, ...input };
     const existing = this.social.find((x) => x.channel === record.channel && x.externalId === record.externalId);
     if (existing) {
       Object.assign(existing, record, { active: true, connectedAt: now() });

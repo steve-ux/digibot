@@ -30,6 +30,8 @@ export interface NewMessage {
   errorTitle?: string | null;
   rawPayload?: unknown;
   messageAt: number;
+  // Respuesta a un comentario: id del comentario respondido
+  inReplyTo?: string | null;
 }
 
 export interface MessagePatch {
@@ -107,6 +109,12 @@ export interface InboxStore {
   recentOutboundStatuses(conversationId: number, limit: number): Promise<MessageStatusUpdate[]>;
   // Messenger avisa "leído hasta tal hora": marca leídos los salientes anteriores.
   markOutboundReadUntil(conversationId: number, untilUnix: number): Promise<void>;
+
+  // Comentarios editados / borrados por su autor. Devuelven false si el comentario no está guardado.
+  editMessageByWamid(wamid: string, body: string, at: number): Promise<boolean>;
+  markDeletedByWamid(wamid: string, at: number): Promise<boolean>;
+  // ¿Ya se respondió por privado este comentario? (Meta permite una sola vez)
+  hasPrivateReply(commentId: string): Promise<boolean>;
 }
 
 let store: InboxStore | null = null;

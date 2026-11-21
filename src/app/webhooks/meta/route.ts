@@ -2,7 +2,11 @@
 // matcher del middleware; la autenticidad se valida con X-Hub-Signature-256.
 // En Meta: App > Messenger / Instagram > Webhooks -> https://<dominio>/webhooks/meta
 // (WhatsApp sigue usando /webhooks/whatsapp).
+// object=page (Messenger y comentarios de la página) e object=instagram (Unified Login)
+// llegan acá con la misma firma del app secret.
 
+import { isDbConfigured } from "@/lib/db";
+import { enqueueMetaWebhook, processMetaWebhookQueue } from "@/lib/meta-social/queue";
 import { processSocialWebhook } from "@/lib/meta-social/webhook";
 import { isValidSignature, isValidVerifyToken } from "@/lib/wa-inbox/webhook";
 
@@ -40,12 +44,27 @@ export async function POST(req: Request) {
     return new Response("OK", { status: 200 });
   }
 
-  // Si falla se devuelve 500 para que Meta reintente; la idempotencia por mid evita duplicados.
+  // Sin base (desarrollo sin MySQL) se procesa en el acto, como antes.
+  if (!isDbConfigured()) {
+    try {
+      await processSocialWebhook(payload);
+    } catch (err) {
+      console.error("[meta-webhook] Error procesando el webhook:", err);
+      return new Response("Error", { status: 500 });
+    }
+    return new Response("OK", { status: 200 });
+  }
+
+  // Se encola y se responde 200 al toque; el procesamiento sigue en segundo plano.
+  // Si no se pudo encolar (base caída) se devuelve 500 para que Meta reintente.
   try {
-    await processSocialWebhook(payload);
+    await enqueueMetaWebhook(rawBody, payload);
   } catch (err) {
-    console.error("[meta-webhook] Error procesando el webhook:", err);
+    console.error("[meta-webhook] No se pudo encolar el webhook:", err);
     return new Response("Error", { status: 500 });
   }
+  void processMetaWebhookQueue().catch((err) =>
+    console.error("[meta-webhook] Error procesando la cola:", (err as Error).message)
+  );
   return new Response("OK", { status: 200 });
 }

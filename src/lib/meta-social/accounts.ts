@@ -5,7 +5,8 @@
 //   META_PAGE_ID, META_PAGE_ACCESS_TOKEN, META_PAGE_NAME          -> Messenger
 //   META_IG_ACCOUNT_ID, META_IG_USERNAME (+ META_PAGE_*)          -> Instagram
 //   THREADS_USER_ID, THREADS_ACCESS_TOKEN, THREADS_USERNAME        -> Threads
-// Instagram usa el token de la página de Facebook vinculada; Threads tiene el suyo.
+// Instagram conectado con Unified Login usa su propio token (de usuario del sistema) y
+// no tiene página; el Instagram viejo vinculado a una página usa el token de esa página.
 
 import type { RowDataPacket } from "mysql2";
 import { decryptSecret } from "../crypto";
@@ -13,8 +14,14 @@ import { getPool, isDbConfigured } from "../db";
 
 export type SocialChannel = "ig" | "fb" | "th";
 
+export type SocialAuthType = "page" | "ig_unified";
+
 export interface SocialAccount {
   channel: SocialChannel;
+  // Cuenta de DigiBot (web_clients.id) dueña de la conexión. null = variables de entorno
+  // (van a la cuenta por defecto).
+  clientId: number | null;
+  authType: SocialAuthType;
   // entry.id de los webhooks: page_id (fb) o ig_user_id (ig)
   accountId: string;
   // Página de Facebook (Messenger e Instagram envían con ella). Threads no tiene.
@@ -27,6 +34,8 @@ export interface SocialAccount {
 
 interface AccountRow extends RowDataPacket {
   id: number;
+  client_id?: number | null;
+  auth_type?: SocialAuthType | null;
   channel: SocialChannel;
   account_id: string;
   page_id: string | null;
@@ -56,7 +65,18 @@ function maybeRefreshThreads(rows: AccountRow[]) {
 async function queryAccounts(): Promise<AccountRow[]> {
   try {
     const [rows] = await getPool().query<AccountRow[]>(
-      `SELECT id, channel, account_id, page_id, display_name, access_token_enc, UNIX_TIMESTAMP(token_expires_at) AS expires_ts
+      `SELECT id, client_id, channel, account_id, page_id, auth_type, display_name, access_token_enc,
+              UNIX_TIMESTAMP(token_expires_at) AS expires_ts
+       FROM web_channel_accounts WHERE status = 'connected'`
+    );
+    return rows;
+  } catch (err) {
+    // Sin la migración 0016 (auth_type) se leen las columnas anteriores.
+    if ((err as { code?: string }).code !== "ER_BAD_FIELD_ERROR") throw err;
+  }
+  try {
+    const [rows] = await getPool().query<AccountRow[]>(
+      `SELECT id, client_id, channel, account_id, page_id, display_name, access_token_enc, UNIX_TIMESTAMP(token_expires_at) AS expires_ts
        FROM web_channel_accounts WHERE status = 'connected'`
     );
     return rows;
@@ -64,7 +84,7 @@ async function queryAccounts(): Promise<AccountRow[]> {
     // Sin la migración 0010 (token_expires_at) se leen las columnas básicas.
     if ((err as { code?: string }).code !== "ER_BAD_FIELD_ERROR") throw err;
     const [rows] = await getPool().query<AccountRow[]>(
-      `SELECT id, channel, account_id, page_id, display_name, access_token_enc
+      `SELECT id, client_id, channel, account_id, page_id, display_name, access_token_enc
        FROM web_channel_accounts WHERE status = 'connected'`
     );
     return rows;
@@ -85,6 +105,8 @@ export function listEnvSocialAccounts(): SocialAccount[] {
   if (pageId) {
     accounts.push({
       channel: "fb",
+      clientId: null,
+      authType: "page",
       accountId: pageId,
       pageId,
       displayName: process.env.META_PAGE_NAME || null,
@@ -98,6 +120,8 @@ export function listEnvSocialAccounts(): SocialAccount[] {
     const username = process.env.META_IG_USERNAME;
     accounts.push({
       channel: "ig",
+      clientId: null,
+      authType: "page",
       accountId: igId,
       pageId,
       displayName: username ? `@${username.replace(/^@/, "")}` : null,
@@ -111,6 +135,8 @@ export function listEnvSocialAccounts(): SocialAccount[] {
     const username = process.env.THREADS_USERNAME;
     accounts.push({
       channel: "th",
+      clientId: null,
+      authType: "page",
       accountId: threadsId,
       pageId: null,
       displayName: username ? `@${username.replace(/^@/, "")}` : null,
@@ -130,6 +156,8 @@ async function loadAccounts(): Promise<SocialAccount[]> {
     for (const row of rows) {
       fromDb.push({
         channel: row.channel,
+        clientId: row.client_id ?? null,
+        authType: row.auth_type ?? "page",
         accountId: row.account_id,
         pageId: row.page_id,
         displayName: row.display_name,

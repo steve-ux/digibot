@@ -4,7 +4,7 @@ import BandejaView, { type BandejaFilters, type BandejaLoadState } from "@/compo
 import type { ChannelFilter, StatusFilter } from "@/components/admin/bandeja/ConversationList";
 import { loadAccountPage } from "@/lib/crm/account-page";
 import type { CustomAttribute } from "@/lib/crm/attributes";
-import { CHANNEL_IDS, type ChannelId } from "@/lib/crm/channels";
+import { CHANNEL_IDS, type RealChannelId } from "@/lib/crm/channels";
 import { DEMO_COOKIE } from "@/lib/crm/demo-cookie";
 import type { Label } from "@/lib/crm/labels";
 import { allowedChannels } from "@/lib/crm/permissions";
@@ -52,7 +52,7 @@ function parseFilters(params: Record<string, string | string[] | undefined>, con
     return Array.isArray(value) ? value[0] : value;
   };
   const status = one("estado") as StatusFilter | undefined;
-  const channel = one("canal") as ChannelId | undefined;
+  const channel = one("canal") as RealChannelId | undefined;
   const selected = Number(conversationId);
   return {
     status: status && STATUSES.includes(status) ? status : "open",

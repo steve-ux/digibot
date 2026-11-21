@@ -2,24 +2,23 @@
 // y Threads, normalizados al mismo modelo de la bandeja que WhatsApp. Server-only.
 //
 //   page      / messaging[]              -> fb  (DMs de Messenger)
-//   page      / changes[field=feed]      -> fbc (comentarios en publicaciones de la página)
+//   page      / changes[field=feed]      -> fbc (comentarios en publicaciones de la página: add, edited, remove)
 //   instagram / messaging[]              -> ig  (DMs de Instagram)
 //   instagram / changes[field=comments]  -> igc (comentarios en publicaciones)
 //   threads   / values[field=replies]    -> th  (respuestas a tus hilos) — processThreadsWebhook
 //
 // Los eventos de "entregado" y "leído" actualizan el estado de los salientes.
+//
+// Cada evento se rutea por entry.id (page_id o ig_user_id) a la conexión y a la cuenta
+// de DigiBot que la conectó. Si nadie conectó esa página / cuenta, el evento se descarta:
+// una conversación nunca cae en la cuenta de otro cliente.
+// El route (/webhooks/meta) no llama acá directo: encola y responde 200 (ver queue.ts).
 
 import type { ChannelId } from "../crm/channels";
 import { getInboxStore, type InboxStore } from "../wa-inbox/store";
+import { adapterFor } from "../channels/adapters";
 import { getSocialAccount, type SocialAccount, type SocialChannel } from "./accounts";
-import {
-  fetchFacebookPost,
-  fetchMedia,
-  fetchProfile,
-  fetchThreadsPost,
-  type MediaInfo,
-  type SocialProfile,
-} from "./graph";
+import type { MediaInfo, SocialProfile } from "./graph";
 
 const LOG = "[meta-webhook]";
 
@@ -92,17 +91,11 @@ export interface SocialWebhookDeps {
 
 type ResolvedDeps = Required<Omit<SocialWebhookDeps, "store">>;
 
-function defaultPostFetcher(account: SocialAccount, postId: string) {
-  if (account.channel === "fb") return fetchFacebookPost(account, postId);
-  if (account.channel === "th") return fetchThreadsPost(account, postId);
-  return fetchMedia(account, postId);
-}
-
 function resolveDeps(deps: SocialWebhookDeps): ResolvedDeps {
   return {
     getAccount: deps.getAccount ?? getSocialAccount,
-    profile: deps.profile ?? fetchProfile,
-    post: deps.post ?? defaultPostFetcher,
+    profile: deps.profile ?? ((account, userId) => adapterFor(account).fetchProfile(account, userId)),
+    post: deps.post ?? ((account, postId) => adapterFor(account).fetchPost(account, postId)),
     appId: deps.appId !== undefined ? deps.appId : process.env.META_APP_ID || null,
   };
 }
@@ -150,12 +143,12 @@ const profileMisses = new Map<string, number>();
 async function enrichContact(
   store: InboxStore,
   deps: ResolvedDeps,
-  account: SocialAccount | null,
+  account: SocialAccount,
   conversationId: number,
   accountId: string,
   contactId: string
 ) {
-  if (!account?.accessToken) return;
+  if (!account.accessToken) return;
   const conversation = await store.getConversation(conversationId);
   if (!conversation || conversation.contactName) return;
   const key = `${account.channel}:${contactId}`;
@@ -165,6 +158,7 @@ async function enrichContact(
     if (!profile.name && !profile.username) throw new Error("perfil vacío");
     await store.upsertConversation(accountId, contactId, profile.name ?? profile.username, {
       channel: account.channel,
+      accountId: account.clientId ?? undefined,
       handle: profile.username ? `@${profile.username}` : profile.name,
     });
   } catch (err) {
@@ -182,11 +176,12 @@ async function isOwnPendingEcho(store: InboxStore, conversationId: number, body:
 
 async function handleMessaging(
   channel: "ig" | "fb",
-  accountId: string,
+  account: SocialAccount,
   event: MessagingEvent,
   store: InboxStore,
   deps: ResolvedDeps
 ) {
+  const accountId = account.accountId;
   if (event.message && !event.message.is_deleted) {
     const message = event.message;
     const echo = Boolean(message.is_echo);
@@ -197,7 +192,10 @@ async function handleMessaging(
 
     const body = describeSocialMessage(message);
     const at = toUnix(event.timestamp);
-    const conversationId = await store.upsertConversation(accountId, contactId, null, { channel });
+    const conversationId = await store.upsertConversation(accountId, contactId, null, {
+      channel,
+      accountId: account.clientId ?? undefined,
+    });
 
     if (echo) {
       if (await isOwnPendingEcho(store, conversationId, body)) return;
@@ -230,7 +228,7 @@ async function handleMessaging(
     });
     if (id === null) return; // mid repetido: Meta reintentó el webhook
     await store.recordActivity(conversationId, { preview: body, at, inbound: true });
-    await enrichContact(store, deps, await deps.getAccount(channel, accountId), conversationId, accountId, contactId);
+    await enrichContact(store, deps, account, conversationId, accountId, contactId);
     return;
   }
 
@@ -252,7 +250,8 @@ async function handleMessaging(
 
 interface IncomingComment {
   channel: Extract<ChannelId, "igc" | "fbc" | "th">;
-  accountChannel: SocialChannel;
+  // Conexión que recibió el comentario (null solo en Threads sin cuenta configurada)
+  account: SocialAccount | null;
   accountId: string;
   // Identifica a quien comenta (id, o @usuario en Threads)
   authorKey: string;
@@ -268,19 +267,21 @@ interface IncomingComment {
 async function ingestComment(comment: IncomingComment, store: InboxStore, deps: ResolvedDeps) {
   // Una conversación por persona y publicación.
   const contactId = `${comment.authorKey}:${comment.postId}`;
+  const clientId = comment.account?.clientId ?? undefined;
   const conversationId = await store.upsertConversation(comment.accountId, contactId, comment.contactName, {
     channel: comment.channel,
+    accountId: clientId,
     handle: comment.handle,
   });
 
   // La publicación se busca una sola vez por conversación.
   const conversation = await store.getConversation(conversationId);
   if (conversation && !conversation.post) {
-    const account = await deps.getAccount(comment.accountChannel, comment.accountId);
+    const account = comment.account;
     if (account?.accessToken) {
       try {
         const post = await deps.post(account, comment.postId);
-        await store.upsertConversation(comment.accountId, contactId, null, { channel: comment.channel, post });
+        await store.upsertConversation(comment.accountId, contactId, null, { channel: comment.channel, accountId: clientId, post });
       } catch (err) {
         console.info(`${LOG} No se pudo obtener la publicación ${comment.postId}:`, (err as Error).message);
       }
@@ -302,7 +303,7 @@ async function ingestComment(comment: IncomingComment, store: InboxStore, deps: 
 }
 
 async function handleInstagramComment(
-  accountId: string,
+  account: SocialAccount,
   value: InstagramCommentValue,
   time: number | undefined,
   store: InboxStore,
@@ -310,13 +311,14 @@ async function handleInstagramComment(
 ) {
   const commenterId = value.from?.id;
   const mediaId = value.media?.id;
+  const accountId = account.accountId;
   if (!value.id || !commenterId || !mediaId) return;
   // Las respuestas de la propia cuenta: las que salen del panel ya están guardadas.
   if (commenterId === accountId) return;
   await ingestComment(
     {
       channel: "igc",
-      accountChannel: "ig",
+      account,
       accountId,
       authorKey: commenterId,
       contactName: null,
@@ -333,21 +335,31 @@ async function handleInstagramComment(
 }
 
 async function handleFacebookFeed(
-  pageId: string,
+  account: SocialAccount,
   value: FeedValue,
   time: number | undefined,
   store: InboxStore,
   deps: ResolvedDeps
 ) {
-  // Solo comentarios nuevos; ediciones, borrados, reacciones y posts se ignoran.
-  if (value.item !== "comment" || value.verb !== "add") return;
-  if (!value.comment_id || !value.post_id) return;
+  const pageId = account.accountId;
+  // Solo comentarios; reacciones, publicaciones nuevas, etc. se ignoran.
+  if (value.item !== "comment" || !value.comment_id) return;
+  const at = toUnix(value.created_time ?? time);
+  if (value.verb === "edited") {
+    await store.editMessageByWamid(value.comment_id, value.message?.trim() || "[comentario sin texto]", at);
+    return;
+  }
+  if (value.verb === "remove") {
+    await store.markDeletedByWamid(value.comment_id, at);
+    return;
+  }
+  if (value.verb !== "add" || !value.post_id) return;
   const fromId = value.from?.id;
   if (fromId === pageId) return; // respuesta de la propia página
   await ingestComment(
     {
       channel: "fbc",
-      accountChannel: "fb",
+      account,
       accountId: pageId,
       // Sin el permiso de lectura de perfiles Meta puede no mandar "from".
       authorKey: fromId ?? `anon-${value.comment_id}`,
@@ -356,7 +368,7 @@ async function handleFacebookFeed(
       postId: value.post_id,
       commentId: value.comment_id,
       text: value.message ?? "",
-      at: toUnix(value.created_time ?? time),
+      at,
       raw: value,
     },
     store,
@@ -378,14 +390,20 @@ export async function processSocialWebhook(payload: unknown, deps: SocialWebhook
   for (const entry of data.entry) {
     const accountId = entry.id;
     if (!accountId) continue;
+    const account = await resolved.getAccount(channel, accountId);
+    if (!account) {
+      // Nadie conectó esta página / cuenta (o se desconectó): no se guarda nada.
+      console.info(`${LOG} Evento de ${data.object} ${accountId} sin conexión activa: se descarta.`);
+      continue;
+    }
     for (const event of entry.messaging ?? []) {
-      await handleMessaging(channel, accountId, event, store, resolved);
+      await handleMessaging(channel, account, event, store, resolved);
     }
     for (const change of entry.changes ?? []) {
       if (channel === "ig" && change.field === "comments" && change.value) {
-        await handleInstagramComment(accountId, change.value as InstagramCommentValue, entry.time, store, resolved);
+        await handleInstagramComment(account, change.value as InstagramCommentValue, entry.time, store, resolved);
       } else if (channel === "fb" && change.field === "feed" && change.value) {
-        await handleFacebookFeed(accountId, change.value as FeedValue, entry.time, store, resolved);
+        await handleFacebookFeed(account, change.value as FeedValue, entry.time, store, resolved);
       } else {
         console.info(`${LOG} Campo "${change.field}" de ${data.object} no manejado.`);
       }
@@ -455,7 +473,7 @@ export async function processThreadsWebhook(payload: unknown, deps: SocialWebhoo
       await ingestComment(
         {
           channel: "th",
-          accountChannel: "th",
+          account,
           accountId,
           authorKey: `@${username}`,
           contactName: null,

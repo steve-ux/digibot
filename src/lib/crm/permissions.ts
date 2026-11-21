@@ -84,6 +84,8 @@ export const ACCOUNT_API_SECTIONS: Record<string, Section> = {
   equipo: "team",
   canales: "channels",
   plantillas: "templates",
+  // Suscripción: plan, tarjeta, historial y cancelación (quien administra la cuenta)
+  suscripcion: "settings",
 };
 
 export interface AccountRoute {

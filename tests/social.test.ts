@@ -15,6 +15,8 @@ const now = () => Math.floor(Date.now() / 1000);
 
 const FB_ACCOUNT: SocialAccount = {
   channel: "fb",
+  clientId: 1,
+  authType: "page",
   accountId: PAGE_ID,
   pageId: PAGE_ID,
   displayName: "Óptica Sol",
@@ -26,6 +28,8 @@ const IG_ACCOUNT: SocialAccount = { ...FB_ACCOUNT, channel: "ig", accountId: IG_
 const TH_ID = "25000000000000";
 const TH_ACCOUNT: SocialAccount = {
   channel: "th",
+  clientId: 1,
+  authType: "page",
   accountId: TH_ID,
   pageId: null,
   displayName: "@opticasol",
@@ -215,7 +219,7 @@ describe("processSocialWebhook: comentarios de Facebook", () => {
     expect(store.messages[0]).toMatchObject({ type: "comment", wamid: "P1_C1", body: "¿Cuotas?" });
   });
 
-  it("ignora ediciones, reacciones y comentarios de la propia página", async () => {
+  it("ignora ediciones de comentarios no guardados, reacciones y comentarios de la propia página", async () => {
     await processSocialWebhook(feed({ item: "comment", verb: "edited", comment_id: "C", post_id: "P", from: { id: "F1" } }), deps());
     await processSocialWebhook(feed({ item: "reaction", verb: "add", post_id: "P", from: { id: "F1" } }), deps());
     await processSocialWebhook(feed({ item: "comment", verb: "add", comment_id: "C2", post_id: "P", from: { id: PAGE_ID } }), deps());
@@ -295,9 +299,9 @@ describe("envío por Messenger e Instagram", () => {
     });
   });
 
-  it("entre 24 h y 7 días usa la etiqueta HUMAN_AGENT", async () => {
+  it("entre 24 h y 7 días usa la etiqueta HUMAN_AGENT (solo con el flag prendido)", async () => {
     const id = await fbConversation(30 * 3600);
-    await sendFromInbox(id, { type: "text", body: "Te respondo yo" }, { store, getAccount });
+    await sendFromInbox(id, { type: "text", body: "Te respondo yo" }, { store, getAccount, humanAgent: true });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ messaging_type: "MESSAGE_TAG", tag: "HUMAN_AGENT" });
   });
 
@@ -391,10 +395,15 @@ describe("envío por Messenger e Instagram", () => {
 
 describe("reglas de ventana", () => {
   const base = { windowSecondsLeft: 0 };
-  it("Instagram/Messenger: 24 h libres, 7 días con HUMAN_AGENT, después nada", () => {
+  it("Instagram/Messenger: 24 h libres; después ventana cerrada (o 7 días con HUMAN_AGENT si está habilitado)", () => {
     expect(replyAvailability({ ...base, channel: "ig", lastInboundAt: now() - 3600 }, "message")).toMatchObject({ allowed: true, humanAgent: false });
-    expect(replyAvailability({ ...base, channel: "fb", lastInboundAt: now() - 3 * 86400 }, "message")).toMatchObject({ allowed: true, humanAgent: true });
-    expect(replyAvailability({ ...base, channel: "fb", lastInboundAt: now() - 8 * 86400 }, "message").allowed).toBe(false);
+    expect(replyAvailability({ ...base, channel: "fb", lastInboundAt: now() - 3 * 86400 }, "message")).toMatchObject({
+      allowed: false,
+      reason: expect.stringContaining("Ventana cerrada"),
+    });
+    const ha = { humanAgent: true };
+    expect(replyAvailability({ ...base, channel: "fb", lastInboundAt: now() - 3 * 86400 }, "message", undefined, ha)).toMatchObject({ allowed: true, humanAgent: true });
+    expect(replyAvailability({ ...base, channel: "fb", lastInboundAt: now() - 8 * 86400 }, "message", undefined, ha).allowed).toBe(false);
   });
   it("comentarios: público siempre, privado hasta 7 días", () => {
     const old = { ...base, channel: "igc" as const, lastInboundAt: now() - 10 * 86400 };
