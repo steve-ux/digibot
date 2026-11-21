@@ -3,16 +3,17 @@
 
 // wa = WhatsApp · ig = DMs de Instagram · igc = comentarios de Instagram
 // fb = Messenger · fbc = comentarios de Facebook · th = respuestas en Threads
-// ttm = DMs de TikTok · ttc = comentarios de TikTok: SOLO prototipo del modo demo
-// (superadmin), para el video de revisión de TikTok. No hay integración real.
-export type ChannelId = "wa" | "ig" | "igc" | "fb" | "fbc" | "th" | "ttm" | "ttc";
+// ttc = comentarios de TikTok (Accounts API)
+// ttm = DMs de TikTok: SOLO prototipo del modo demo (superadmin) hasta que TikTok
+//       apruebe Business Messaging API. No hay integración real.
+export type ChannelId = "wa" | "ig" | "igc" | "fb" | "fbc" | "th" | "ttc" | "ttm";
 
-// Canales reales. "ttm" y "ttc" quedan afuera a propósito: así nunca aparece en filtros,
+// Canales reales. "ttm" queda afuera a propósito: así nunca aparece en filtros,
 // métricas, permisos ni sonidos de clientes reales.
-export type RealChannelId = Exclude<ChannelId, "ttm" | "ttc">;
-export const CHANNEL_IDS: RealChannelId[] = ["wa", "ig", "igc", "fb", "fbc", "th"];
+export type RealChannelId = Exclude<ChannelId, "ttm">;
+export const CHANNEL_IDS: RealChannelId[] = ["wa", "ig", "igc", "fb", "fbc", "th", "ttc"];
 
-// Prototipo de TikTok: solo superadmin con el modo demo prendido.
+// Prototipo de TikTok (mensajes directos): solo superadmin con el modo demo prendido.
 export function tiktokDemoEnabled(demo: boolean, role: string | null | undefined) {
   return demo && role === "superadmin";
 }
@@ -52,14 +53,14 @@ export const CHANNELS: Record<ChannelId, ChannelInfo> = {
     name: "Mensajes TikTok",
     longName: "Mensajes de TikTok",
     icon: "/crm/channels/log_tiktok.avif",
-    color: "var(--crm-ch-th)",
+    color: "var(--crm-ch-ttc)",
   },
   ttc: {
     id: "ttc",
     name: "Comentarios TikTok",
     longName: "Comentarios de TikTok",
     icon: "/crm/channels/log_tiktok.avif",
-    color: "var(--crm-ch-th)",
+    color: "var(--crm-ch-ttc)",
   },
 };
 

@@ -69,7 +69,25 @@ const PROVIDERS: {
     connectLabel: "Conectar Threads",
     moreLabel: "Conectar otro perfil",
   },
+  {
+    id: "tiktok",
+    name: "TikTok",
+    icon: "/crm/channels/log_tiktok.avif",
+    description: "Los comentarios de tus videos de TikTok, para responderlos desde la bandeja.",
+    connectLabel: "Conectar TikTok",
+    moreLabel: "Conectar otra cuenta",
+    requirements: ["Iniciar sesión en TikTok con la cuenta que vas a conectar y aceptar todos los permisos."],
+  },
 ];
+
+// Prototipo de TikTok con mensajes directos (solo superadmin en demo), hasta que TikTok
+// apruebe Business Messaging API.
+const TIKTOK_DEMO = {
+  id: "tiktok",
+  name: "TikTok",
+  icon: "/crm/channels/log_tiktok.avif",
+  description: "Mensajes directos y comentarios de tus videos de TikTok, para no perderte ninguna consulta.",
+};
 
 // Canales que todavía no se pueden conectar: se muestran con el botón deshabilitado.
 const COMING_SOON: { id: string; name: string; icon: string; description: string }[] = [
@@ -84,12 +102,6 @@ const COMING_SOON: { id: string; name: string; icon: string; description: string
     name: "Telegram",
     icon: "/crm/channels/Telegram_logo.svg.webp",
     description: "Los chats de tu bot de Telegram, en la misma bandeja que el resto.",
-  },
-  {
-    id: "tiktok",
-    name: "TikTok",
-    icon: "/crm/channels/log_tiktok.avif",
-    description: "Mensajes directos y comentarios de tus videos de TikTok, para no perderte ninguna consulta.",
   },
 ];
 
@@ -120,7 +132,7 @@ function demoOverview(): ChannelsOverview {
       { key: "demo:ig", provider: "instagram", title: "@opticasol", subtitle: "Mensajes directos y comentarios", pictureUrl: null, connectedAt: now - 20 * 86400, expiresAt: null, fromEnv: false },
       { key: "demo:fb", provider: "facebook", title: "Óptica Sol", subtitle: "Messenger y comentarios de la página", pictureUrl: null, connectedAt: now - 20 * 86400, expiresAt: null, fromEnv: false },
     ],
-    availability: { whatsapp: available, facebook: available, instagram: available, threads: available },
+    availability: { whatsapp: available, facebook: available, instagram: available, threads: available, tiktok: available },
     meta: { appId: null, graphVersion: "v23.0", whatsappConfigId: null, whatsappEsVersion: "v5", loginConfigId: null, instagramConfigId: null },
   };
 }
@@ -130,6 +142,7 @@ const DEMO_NEW: Record<ProviderId, Omit<ConnectedAccount, "key" | "connectedAt">
   instagram: { provider: "instagram", title: "@opticasol.centro", subtitle: "Mensajes directos y comentarios", pictureUrl: null, expiresAt: null, fromEnv: false },
   facebook: { provider: "facebook", title: "Óptica Sol Centro", subtitle: "Messenger y comentarios de la página", pictureUrl: null, expiresAt: null, fromEnv: false },
   threads: { provider: "threads", title: "@opticasol", subtitle: "Respuestas a tus hilos", pictureUrl: null, expiresAt: Math.floor(Date.now() / 1000) + 60 * 86400, fromEnv: false },
+  tiktok: { provider: "tiktok", title: "@opticasol", subtitle: "Comentarios de tus videos", pictureUrl: null, expiresAt: null, fromEnv: false },
 };
 
 // ---------- Vista ----------
@@ -215,8 +228,8 @@ function Canales({
   const connect = async (provider: ProviderId, mode: WaMode = "new") => {
     if (!overview) return;
     if (demo) return demoConnect(provider);
-    if (provider === "threads") {
-      window.location.href = accountApi(accountId, "canales/threads");
+    if (provider === "threads" || provider === "tiktok") {
+      window.location.href = accountApi(accountId, `canales/${provider}`);
       return;
     }
     if (provider === "whatsapp") {
@@ -281,7 +294,10 @@ function Canales({
 
       {overview && (
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))]">
-          {PROVIDERS.map((p) => (
+          {PROVIDERS.map((p) =>
+            p.id === "tiktok" && tiktok ? (
+              <TikTokDemoCard key={p.id} channel={TIKTOK_DEMO} />
+            ) : (
             <ProviderCard
               key={p.id}
               provider={p}
@@ -305,10 +321,11 @@ function Canales({
                   : undefined
               }
             />
-          ))}
-          {COMING_SOON.map((c) =>
-            c.id === "tiktok" && tiktok ? <TikTokDemoCard key={c.id} channel={c} /> : <SoonCard key={c.id} channel={c} />
+            )
           )}
+          {COMING_SOON.map((c) => (
+            <SoonCard key={c.id} channel={c} />
+          ))}
         </div>
       )}
 
@@ -636,7 +653,7 @@ function SoonCard({ channel }: { channel: (typeof COMING_SOON)[number] }) {
 
 // Prototipo de TikTok (solo superadmin en modo demo), para el video de revisión
 // de TikTok. No llama a ninguna API: la autorización se simula.
-function TikTokDemoCard({ channel }: { channel: (typeof COMING_SOON)[number] }) {
+function TikTokDemoCard({ channel }: { channel: typeof TIKTOK_DEMO }) {
   const toast = useToast();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);

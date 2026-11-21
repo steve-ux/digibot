@@ -329,6 +329,8 @@ export default function Composer({
             ref={textareaRef}
             rows={1}
             value={draft}
+            // TikTok acepta comentarios de hasta 150 caracteres
+            maxLength={conversation.channel === "ttc" ? 150 : undefined}
             enterKeyHint={coarse ? "enter" : "send"}
             onChange={(e) => onDraft(e.target.value)}
             onKeyDown={(e) => {

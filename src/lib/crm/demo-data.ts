@@ -368,7 +368,8 @@ export async function buildDemoSettings(accountId: number): Promise<MemorySettin
   return repo;
 }
 
-function tiktokSeeds(): SeedConversation[] {
+// Comentarios de TikTok (canal real) y, solo con dms, los mensajes directos del prototipo.
+function tiktokSeeds(dms: boolean): SeedConversation[] {
   const comment = (name: string, handle: string, ago: number, text: string, unread = 1): SeedConversation => ({
     name,
     channel: "ttc",
@@ -388,6 +389,13 @@ function tiktokSeeds(): SeedConversation[] {
     sessions: 1,
     messages,
   });
+  const comments = [
+    comment("Julieta Moreno", "@juli.mza", 8, "Tengo cara redonda, ¿cuáles me recomiendan? 😍"),
+    comment("Nico Herrera", "@nico_ok", 21, "¿Hacen envíos a Córdoba?"),
+    comment("Agus Paredes", "@agus.paredes", 47, "Me encantaron los del final, ¿cuánto salen?"),
+    comment("", "@lu.martinez", 2 * H, "¿Trabajan con obra social?", 0),
+  ];
+  if (!dms) return comments;
   return [
     dm("Carolina Vega", "@caro.vega", [
       { ago: 14, by: "in", text: "Hola! Vi su video de los tips, ¿tienen turnos para control de vista esta semana?" },
@@ -396,22 +404,19 @@ function tiktokSeeds(): SeedConversation[] {
       { ago: 3 * 60, by: "in", text: "Buenas, ¿los anteojos de sol del último video vienen con estuche?" },
       { ago: 3 * 60 - 5, by: "in", text: "Y si hacen envío a Godoy Cruz 🙏" },
     ], 2),
-    comment("Julieta Moreno", "@juli.mza", 8, "Tengo cara redonda, ¿cuáles me recomiendan? 😍"),
-    comment("Nico Herrera", "@nico_ok", 21, "¿Hacen envíos a Córdoba?"),
-    comment("Agus Paredes", "@agus.paredes", 47, "Me encantaron los del final, ¿cuánto salen?"),
-    comment("", "@lu.martinez", 2 * H, "¿Trabajan con obra social?", 0),
+    ...comments,
   ];
 }
 
 // Arma un store en memoria con las conversaciones de ejemplo.
-// tiktok: suma los comentarios del prototipo de TikTok (solo superadmin en demo).
+// tiktok: suma los mensajes directos del prototipo de TikTok (solo superadmin en demo).
 export function buildDemoStore(meName: string, accountId = 1, opts: { tiktok?: boolean } = {}): MemoryInboxStore {
   const store = new MemoryInboxStore();
   store.defaultAccountId = accountId;
   const now = Math.floor(Date.now() / 1000);
   const at = (ago: number) => now - ago * 60;
 
-  const all = opts.tiktok ? [...seeds(meName), ...tiktokSeeds()] : seeds(meName);
+  const all = [...seeds(meName), ...tiktokSeeds(opts.tiktok ?? false)];
   all.forEach((seed, index) => {
     const id = index + 1;
     const visible = seed.messages.filter((m) => m.by === "in" || m.by === "bot" || m.by === "agent");
@@ -483,9 +488,9 @@ export interface DemoTeamUser {
 
 export function demoUsers(meName: string): DemoTeamUser[] {
   return [
-    { id: 1, name: meName, email: "vos@opticasol.com", role: "admin", channels: ["wa", "ig", "igc", "fb", "fbc", "th"], status: "active" },
+    { id: 1, name: meName, email: "vos@opticasol.com", role: "admin", channels: ["wa", "ig", "igc", "fb", "fbc", "th", "ttc"], status: "active" },
     { id: 2, name: SOFIA.name, email: "sofia@opticasol.com", role: "agent", channels: ["wa", "ig", "igc"], status: "active" },
-    { id: 3, name: DIEGO.name, email: "diego@opticasol.com", role: "supervisor", channels: ["wa", "ig", "igc", "fb", "fbc", "th"], status: "active" },
+    { id: 3, name: DIEGO.name, email: "diego@opticasol.com", role: "supervisor", channels: ["wa", "ig", "igc", "fb", "fbc", "th", "ttc"], status: "active" },
     { id: 4, name: "Camila Ortega", email: "camila@opticasol.com", role: "agent", channels: ["fb", "fbc"], status: "invited" },
   ];
 }

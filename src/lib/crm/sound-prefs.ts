@@ -24,8 +24,9 @@ export const SOUND_LABELS: Record<SoundId, string> = {
 // Canales que todavía no se conectan (YouTube, Telegram, TikTok): ya se les puede
 // elegir sonido para cuando lleguen.
 export type UpcomingChannelId = "yt" | "tg" | "tt";
-// "ttm"/"ttc" (prototipo de TikTok del modo demo) no se guardan: usan el sonido de "tt".
-export type SoundChannelId = RealChannelId | UpcomingChannelId;
+// "ttc" (comentarios de TikTok) y "ttm" (prototipo de DMs) no tienen preferencia propia:
+// suenan con la de "tt" (la fila TikTok de Configuración → Sonidos).
+export type SoundChannelId = Exclude<RealChannelId, "ttc"> | UpcomingChannelId;
 
 export const UPCOMING_SOUND_CHANNELS: { id: UpcomingChannelId; name: string; icon: string }[] = [
   { id: "yt", name: "YouTube", icon: "/crm/channels/YouTube-logo.png" },
@@ -33,7 +34,8 @@ export const UPCOMING_SOUND_CHANNELS: { id: UpcomingChannelId; name: string; ico
   { id: "tt", name: "TikTok", icon: "/crm/channels/log_tiktok.avif" },
 ];
 
-const SOUND_CHANNEL_IDS: SoundChannelId[] = [...CHANNEL_IDS, ...UPCOMING_SOUND_CHANNELS.map((c) => c.id)];
+export const SOUND_META_CHANNELS = CHANNEL_IDS.filter((c): c is Exclude<RealChannelId, "ttc"> => c !== "ttc");
+const SOUND_CHANNEL_IDS: SoundChannelId[] = [...SOUND_META_CHANNELS, ...UPCOMING_SOUND_CHANNELS.map((c) => c.id)];
 
 export interface SoundPrefs {
   enabled: boolean;

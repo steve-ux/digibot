@@ -16,6 +16,7 @@ const CHANNEL_WEIGHTS: [ChannelId, number][] = [
   ["fb", 9],
   ["fbc", 8],
   ["th", 5],
+  ["ttc", 4],
 ];
 
 // Peso de cada hora del día (0-23).

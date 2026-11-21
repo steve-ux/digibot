@@ -67,7 +67,7 @@ async function queryAccounts(): Promise<AccountRow[]> {
     const [rows] = await getPool().query<AccountRow[]>(
       `SELECT id, client_id, channel, account_id, page_id, auth_type, display_name, access_token_enc,
               UNIX_TIMESTAMP(token_expires_at) AS expires_ts
-       FROM web_channel_accounts WHERE status = 'connected'`
+       FROM web_channel_accounts WHERE status = 'connected' AND channel IN ('ig', 'fb', 'th')`
     );
     return rows;
   } catch (err) {
@@ -77,7 +77,7 @@ async function queryAccounts(): Promise<AccountRow[]> {
   try {
     const [rows] = await getPool().query<AccountRow[]>(
       `SELECT id, client_id, channel, account_id, page_id, display_name, access_token_enc, UNIX_TIMESTAMP(token_expires_at) AS expires_ts
-       FROM web_channel_accounts WHERE status = 'connected'`
+       FROM web_channel_accounts WHERE status = 'connected' AND channel IN ('ig', 'fb', 'th')`
     );
     return rows;
   } catch (err) {
@@ -85,7 +85,7 @@ async function queryAccounts(): Promise<AccountRow[]> {
     if ((err as { code?: string }).code !== "ER_BAD_FIELD_ERROR") throw err;
     const [rows] = await getPool().query<AccountRow[]>(
       `SELECT id, client_id, channel, account_id, page_id, display_name, access_token_enc
-       FROM web_channel_accounts WHERE status = 'connected'`
+       FROM web_channel_accounts WHERE status = 'connected' AND channel IN ('ig', 'fb', 'th')`
     );
     return rows;
   }

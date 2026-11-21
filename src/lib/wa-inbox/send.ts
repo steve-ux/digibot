@@ -16,6 +16,8 @@ import { replyAvailability, type ReplyKind } from "../crm/reply-window";
 import { getSocialAccount, type SocialAccount, type SocialChannel } from "../meta-social/accounts";
 import { isCommentChannel, supportsPrivateReply, type ChannelId } from "../crm/channels";
 import { MetaApiError, MetaConfigError, sendWhatsAppMessage, type TemplateMessageInput } from "../meta-whatsapp";
+import { MAX_TIKTOK_COMMENT_LENGTH, replyOnTikTok, TikTokSendError } from "../tiktok/send";
+import type { ChannelsRepo } from "../channels/repo";
 import { getInboxStore, type InboxStore } from "./store";
 import { listApprovedInboxTemplates } from "./templates";
 import { renderTemplateText, type InboxConversation, type InboxMessage, type InboxTemplate } from "./types";
@@ -62,6 +64,8 @@ interface SendDeps {
   getAccount?: (channel: SocialChannel, accountId: string) => Promise<SocialAccount | null>;
   // META_HUMAN_AGENT_ENABLED (los tests lo pasan directo)
   humanAgent?: boolean;
+  // Cuentas de TikTok conectadas (por defecto, la base)
+  channelsRepo?: ChannelsRepo;
 }
 
 // Tipo del mensaje saliente según canal y modo (lo usa la UI para la etiqueta).
@@ -204,7 +208,9 @@ export async function sendFromInbox(
         ? MAX_TEXT_LENGTH
         : conversation.channel === "th"
           ? MAX_THREADS_TEXT_LENGTH
-          : MAX_SOCIAL_TEXT_LENGTH;
+          : conversation.channel === "ttc"
+            ? MAX_TIKTOK_COMMENT_LENGTH
+            : MAX_SOCIAL_TEXT_LENGTH;
     if (body.length > max) {
       throw new InboxSendError("invalid_body", `El mensaje supera los ${max} caracteres.`, 400);
     }
@@ -281,7 +287,7 @@ export async function retryFromInbox(
   return deliver(store, conversation, messageId, { type: "text", text: message.body }, message.type, deps);
 }
 
-// Envío por Messenger / Instagram / Threads (DM, respuesta pública o privada a un comentario).
+// Envío por Messenger / Instagram / Threads (TikTok va por src/lib/tiktok/send.ts) (DM, respuesta pública o privada a un comentario).
 async function sendSocial(
   store: InboxStore,
   conversation: InboxConversation,
@@ -373,6 +379,12 @@ async function deliver(
         status: "sent",
         rawPayload: result,
       });
+    } else if (conversation.channel === "ttc") {
+      if (outgoing.type !== "text" || type !== "comment_reply") throw new TikTokSendError("En TikTok solo se responde en público.");
+      const saved = await store.getMessage(messageId);
+      const target = await findTargetComment(store, conversation, saved?.inReplyTo);
+      const result = await replyOnTikTok(conversation, target, outgoing.text, deps.channelsRepo);
+      await store.updateMessage(messageId, { wamid: result.id, status: "sent", rawPayload: result });
     } else {
       if (outgoing.type !== "text") throw new MetaConfigError("Las plantillas solo existen en WhatsApp.");
       const result = await sendSocial(store, conversation, messageId, outgoing.text, type, deps);
@@ -381,7 +393,7 @@ async function deliver(
   } catch (err) {
     if (err instanceof MetaApiError) {
       error = { code: pickErrorCode(err.code, err.subcode, conversation.channel), title: err.title || err.message };
-    } else if (err instanceof MetaConfigError) {
+    } else if (err instanceof MetaConfigError || err instanceof TikTokSendError || err instanceof InboxSendError) {
       error = { code: null, title: err.message };
     } else {
       console.error("[wa-inbox] Error inesperado al enviar:", err);

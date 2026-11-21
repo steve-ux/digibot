@@ -29,7 +29,7 @@ export async function planDenied(accountId: number, provider: Provider): Promise
 export async function lockedProviders(accountId: number): Promise<Partial<Record<Provider, string>>> {
   const planKey = await accountPlanKey(accountId);
   const out: Partial<Record<Provider, string>> = {};
-  for (const p of ["whatsapp", "instagram", "facebook", "threads"] as Provider[]) {
+  for (const p of ["whatsapp", "instagram", "facebook", "threads", "tiktok"] as Provider[]) {
     const reason = providerLockReason(planKey, p);
     if (reason) out[p] = reason;
   }

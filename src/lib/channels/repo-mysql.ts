@@ -1,5 +1,6 @@
 // ChannelsRepo sobre web_channel_accounts. Server-only.
-// Los tokens se guardan cifrados (AES-256-GCM, src/lib/crypto.ts).
+// Los tokens se guardan cifrados (AES-256-GCM, src/lib/crypto.ts). El refresh token
+// de TikTok va cifrado dentro de meta (refreshTokenEnc), así no hace falta otra columna.
 
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { decryptSecret, encryptSecret } from "../crypto";
@@ -25,7 +26,14 @@ interface SocialRow extends RowDataPacket {
   connected_ts: number | string;
 }
 
-function parseMeta(value: unknown): { pictureUrl?: string; pageName?: string } {
+interface SocialMeta {
+  pictureUrl?: string | null;
+  pageName?: string | null;
+  refreshTokenEnc?: string | null;
+  refreshExpiresAt?: number | null;
+}
+
+function parseMeta(value: unknown): SocialMeta {
   if (!value) return {};
   if (typeof value === "string") {
     try {
@@ -34,7 +42,16 @@ function parseMeta(value: unknown): { pictureUrl?: string; pageName?: string } {
       return {};
     }
   }
-  return value as { pictureUrl?: string; pageName?: string };
+  return value as SocialMeta;
+}
+
+function decryptOrNull(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    return decryptSecret(value);
+  } catch {
+    return null;
+  }
 }
 
 function mapSocial(r: SocialRow): SocialRecord {
@@ -53,6 +70,8 @@ function mapSocial(r: SocialRow): SocialRecord {
     tokenExpiresAt: r.expires_ts === null ? null : Number(r.expires_ts),
     pictureUrl: meta.pictureUrl ?? null,
     pageName: meta.pageName ?? null,
+    refreshToken: decryptOrNull(meta.refreshTokenEnc),
+    refreshExpiresAt: meta.refreshExpiresAt ?? null,
     connectedAt: Number(r.connected_ts),
   };
 }
@@ -75,7 +94,11 @@ class MySqlChannelsRepo implements ChannelsRepo {
   }
 
   async saveSocial(r: NewSocial) {
-    const meta = JSON.stringify({ pictureUrl: r.pictureUrl, pageName: r.pageName });
+    const meta = JSON.stringify({
+      pictureUrl: r.pictureUrl,
+      pageName: r.pageName,
+      ...(r.refreshToken ? { refreshTokenEnc: encryptSecret(r.refreshToken), refreshExpiresAt: r.refreshExpiresAt ?? null } : {}),
+    });
     const [result] = await getPool().query<ResultSetHeader>(
       `INSERT INTO web_channel_accounts
          (client_id, channel, account_id, page_id, auth_type, business_id, config_id, display_name, access_token_enc,
@@ -114,7 +137,10 @@ class MySqlChannelsRepo implements ChannelsRepo {
     if (!rows[0]) return null;
     // El token se borra: desconectar no deja credenciales guardadas.
     await getPool().query(
-      `UPDATE web_channel_accounts SET status = 'disconnected', access_token_enc = NULL, token_expires_at = NULL WHERE id = ?`,
+      `UPDATE web_channel_accounts
+       SET status = 'disconnected', access_token_enc = NULL, token_expires_at = NULL,
+           meta = JSON_REMOVE(COALESCE(meta, JSON_OBJECT()), '$.refreshTokenEnc')
+       WHERE id = ?`,
       [id]
     );
     return mapSocial(rows[0]);
@@ -124,6 +150,15 @@ class MySqlChannelsRepo implements ChannelsRepo {
     await getPool().query(
       `UPDATE web_channel_accounts SET access_token_enc = ?, token_expires_at = FROM_UNIXTIME(?) WHERE id = ?`,
       [encryptSecret(accessToken), expiresAt, id]
+    );
+  }
+
+  async updateRefreshToken(id: number, refreshToken: string, expiresAt: number | null) {
+    await getPool().query(
+      `UPDATE web_channel_accounts
+       SET meta = JSON_SET(COALESCE(meta, JSON_OBJECT()), '$.refreshTokenEnc', ?, '$.refreshExpiresAt', ?)
+       WHERE id = ?`,
+      [encryptSecret(refreshToken), expiresAt, id]
     );
   }
 

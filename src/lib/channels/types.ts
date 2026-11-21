@@ -3,13 +3,14 @@
 import type { ChannelId } from "../crm/channels";
 
 // Lo que se conecta (un proveedor puede alimentar más de un canal de la bandeja).
-export type ProviderId = "whatsapp" | "facebook" | "instagram" | "threads";
+export type ProviderId = "whatsapp" | "facebook" | "instagram" | "threads" | "tiktok";
 
 export const PROVIDER_CHANNELS: Record<ProviderId, ChannelId[]> = {
   whatsapp: ["wa"],
   facebook: ["fb", "fbc"],
   instagram: ["ig", "igc"],
   threads: ["th"],
+  tiktok: ["ttc"],
 };
 
 // Cuenta conectada que se muestra en la tarjeta.

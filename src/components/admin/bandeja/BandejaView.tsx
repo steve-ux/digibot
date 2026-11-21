@@ -84,7 +84,7 @@ function Bandeja({
   demo,
 }: Props & { demo: boolean }) {
   const { reportInboxUnread, setImmersive, setDemo, playIncoming, sounds, user } = useCrmShell();
-  // Prototipo de TikTok: solo superadmin en demo (para el video de revisión de TikTok).
+  // Prototipo de DMs de TikTok: solo superadmin en demo (hasta que TikTok apruebe Business Messaging).
   const tiktok = tiktokDemoEnabled(demo, user.role);
   // Lo último que trajo el polling, para detectar mensajes nuevos de clientes (sonido).
   const lastPolled = useRef<InboxConversation[] | null>(null);
@@ -406,7 +406,7 @@ function Bandeja({
           onOpen={open}
           banner={banner}
           empty={listEmpty}
-          channels={demo ? (tiktok ? [...CHANNEL_IDS, "ttm", "ttc"] : CHANNEL_IDS) : allowedChannels}
+          channels={demo ? (tiktok ? [...CHANNEL_IDS, "ttm"] : CHANNEL_IDS) : allowedChannels}
         />
       </section>
 

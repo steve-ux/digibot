@@ -10,6 +10,10 @@
 //                                      (requiere el permiso aprobado). Apagado por defecto.
 //   THREADS_APP_ID, THREADS_APP_SECRET -> el producto Threads de la app (tiene id y secreto propios)
 //   APP_URL                          -> https://digibotlatam.com (para el redirect de Threads)
+//   TIKTOK_APP_ID, TIKTOK_APP_SECRET -> la app de TikTok for Business (My Apps > App Detail > Basic Information)
+//   TIKTOK_REDIRECT_URI              -> opcional: la "TikTok account holder redirect URL" exacta si no es
+//                                       <APP_URL>/integraciones/tiktok/cuenta/callback (ej. el túnel para probar)
+//   TIKTOK_SCOPES                    -> opcional: permisos separados por coma (por defecto, los aprobados)
 //
 // Mientras falte algo, el botón de ese canal se muestra deshabilitado con el motivo.
 
@@ -39,6 +43,12 @@ export function threadsAppCredentials() {
   return appId && appSecret ? { appId, appSecret } : null;
 }
 
+export function tiktokAppCredentials() {
+  const appId = process.env.TIKTOK_APP_ID || null;
+  const appSecret = process.env.TIKTOK_APP_SECRET || null;
+  return appId && appSecret ? { appId, appSecret } : null;
+}
+
 export function metaClientConfig(): MetaClientConfig {
   return {
     appId: process.env.META_APP_ID || null,
@@ -60,6 +70,7 @@ export function providerAvailability(): Record<ProviderId, ProviderAvailability>
     facebook: meta && client.loginConfigId ? ok : pending,
     instagram: meta && client.instagramConfigId ? ok : pending,
     threads: threadsAppCredentials() ? ok : pending,
+    tiktok: tiktokAppCredentials() ? ok : pending,
   };
 }
 
@@ -74,3 +85,27 @@ export function publicBaseUrl(headers?: Headers) {
 
 export const THREADS_CALLBACK_PATH = "/api/admin/canales/threads/callback";
 export const THREADS_SCOPES = ["threads_basic", "threads_read_replies", "threads_manage_replies"];
+
+// Tiene que coincidir con la "TikTok account holder redirect URL" registrada en la app.
+export const TIKTOK_CALLBACK_PATH = "/integraciones/tiktok/cuenta/callback";
+// Los permisos aprobados de "TikTok accounts" (los mismos que trae la URL de autorización de la app).
+const TIKTOK_DEFAULT_SCOPES = [
+  "user.info.basic",
+  "user.info.username",
+  "user.info.stats",
+  "user.info.profile",
+  "user.account.type",
+  "user.insights",
+  "video.list",
+  "video.insights",
+  "biz.spark.auth",
+  "comment.list",
+  "comment.list.manage",
+];
+export function tiktokScopes() {
+  const custom = process.env.TIKTOK_SCOPES?.split(",").map((s) => s.trim()).filter(Boolean);
+  return custom?.length ? custom : TIKTOK_DEFAULT_SCOPES;
+}
+export function tiktokRedirectUri(headers?: Headers) {
+  return process.env.TIKTOK_REDIRECT_URI || `${publicBaseUrl(headers)}${TIKTOK_CALLBACK_PATH}`;
+}

@@ -6,6 +6,7 @@
 //   Instagram  -> Instagram API with Unified Login (META_IG_CONFIG_ID): se listan las cuentas
 //                 asignadas al token de usuario del sistema; no hace falta página
 //   Threads    -> OAuth con redirect; el token dura 60 días y se renueva solo
+//   TikTok     -> OAuth con redirect (src/lib/tiktok/connection.ts); token de 1 día que se renueva solo
 //
 // Un número / página / perfil no puede estar conectado a dos cuentas de DigiBot a la vez.
 
@@ -40,7 +41,7 @@ const STATE_TTL = 10 * 60;
 // Se renueva el token de Threads cuando le quedan menos de 10 días.
 export const THREADS_REFRESH_WINDOW = 10 * 24 * 3600;
 
-const PROVIDER_OF: Record<SocialKind, ProviderId> = { fb: "facebook", ig: "instagram", th: "threads" };
+const PROVIDER_OF: Record<SocialKind, ProviderId> = { fb: "facebook", ig: "instagram", th: "threads", tt: "tiktok" };
 
 export function socialAccountView(s: SocialRecord): ConnectedAccount {
   const subtitle =
@@ -52,7 +53,9 @@ export function socialAccountView(s: SocialRecord): ConnectedAccount {
           : null
       : s.channel === "fb"
         ? "Messenger y comentarios de la página"
-        : "Respuestas a tus hilos";
+        : s.channel === "tt"
+          ? "Comentarios de tus videos"
+          : "Respuestas a tus hilos";
   return {
     key: `social:${s.id}`,
     provider: PROVIDER_OF[s.channel],
@@ -60,7 +63,8 @@ export function socialAccountView(s: SocialRecord): ConnectedAccount {
     subtitle,
     pictureUrl: s.pictureUrl,
     connectedAt: s.connectedAt,
-    expiresAt: s.tokenExpiresAt,
+    // TikTok renueva su token todos los días: lo que importa es el refresh token (1 año)
+    expiresAt: s.channel === "tt" ? null : s.tokenExpiresAt,
     fromEnv: false,
   };
 }
@@ -344,6 +348,11 @@ export async function disconnectChannel(repo: ChannelsRepo, accountId: number, k
 
   const removed = await repo.disconnectSocial(accountId, id);
   if (!removed) throw new ConnectError("La conexión no existe.", 404);
+  if (removed.channel === "tt") {
+    const { revokeTikTok } = await import("../tiktok/connection");
+    await revokeTikTok(removed);
+    return removed;
+  }
   if (removed.authType === "ig_unified") {
     await meta.unsubscribeInstagram(removed.accessToken, removed.externalId).catch(() => undefined);
     return removed;

@@ -24,7 +24,7 @@ export type MetricsLoadState =
 
 // Orden de apilado y de la leyenda: probado para que dos colores vecinos se
 // distingan también con daltonismo (el azul de Facebook nunca al lado del violeta de Messenger).
-const STACK_ORDER: ChannelId[] = ["wa", "ig", "fbc", "igc", "fb", "th"];
+const STACK_ORDER: ChannelId[] = ["wa", "ig", "fbc", "igc", "fb", "th", "ttc"];
 
 const TONE_CLASS: Record<Delta["tone"], string> = {
   good: "text-crm-success-ink",

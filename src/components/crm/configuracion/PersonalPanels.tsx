@@ -9,10 +9,11 @@ import Icon from "@/components/crm/Icon";
 import { useToast } from "@/components/crm/Toast";
 import UserAvatar from "@/components/crm/UserAvatar";
 import { playSound, unlockAudio } from "@/components/crm/sound-player";
-import { CHANNEL_IDS, CHANNELS } from "@/lib/crm/channels";
+import { CHANNELS } from "@/lib/crm/channels";
 import {
   SOUND_IDS,
   SOUND_LABELS,
+  SOUND_META_CHANNELS,
   UPCOMING_SOUND_CHANNELS,
   type ChannelSound,
   type SoundChannelId,
@@ -21,7 +22,7 @@ import {
 
 // Filas de Sonidos: los canales de Meta y, al final, YouTube, Telegram y TikTok (plan Plus+).
 const SOUND_ROWS: { id: SoundChannelId; name: string; icon: string }[] = [
-  ...CHANNEL_IDS.map((id) => ({ id, name: CHANNELS[id].longName, icon: CHANNELS[id].icon })),
+  ...SOUND_META_CHANNELS.map((id) => ({ id, name: CHANNELS[id].longName, icon: CHANNELS[id].icon })),
   ...UPCOMING_SOUND_CHANNELS,
 ];
 import { currentBuild, isOutdated, type BuildInfo } from "@/lib/version";

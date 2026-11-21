@@ -3,7 +3,8 @@
 // la implementación MySQL (repo-mysql.ts) los cifra al guardar. MemoryChannelsRepo
 // sirve para tests.
 
-export type SocialKind = "fb" | "ig" | "th";
+// tt = cuenta de TikTok (externalId = open_id). Su refresh token va cifrado en meta.
+export type SocialKind = "fb" | "ig" | "th" | "tt";
 // page: token de página (Messenger, Instagram viejo vinculado a una página).
 // ig_unified: Instagram API with Unified Login (token de usuario del sistema, sin página).
 export type SocialAuthType = "page" | "ig_unified";
@@ -26,6 +27,9 @@ export interface SocialRecord {
   pictureUrl: string | null;
   // Para Instagram: nombre de la página vinculada
   pageName: string | null;
+  // TikTok: el access token dura 1 día y se renueva con este (vale 1 año)
+  refreshToken?: string | null;
+  refreshExpiresAt?: number | null;
   connectedAt: number;
 }
 
@@ -38,6 +42,8 @@ export interface ChannelsRepo {
   saveSocial(record: NewSocial): Promise<number>;
   disconnectSocial(accountId: number, id: number): Promise<SocialRecord | null>;
   updateSocialToken(id: number, accessToken: string, expiresAt: number | null): Promise<void>;
+  // TikTok: cada renovación trae un access token y un refresh token nuevos
+  updateRefreshToken(id: number, refreshToken: string, expiresAt: number | null): Promise<void>;
   // Tokens de Threads que vencen antes de `beforeUnix` (para renovarlos)
   listExpiring(channel: SocialKind, beforeUnix: number): Promise<SocialRecord[]>;
 }
@@ -78,6 +84,10 @@ export class MemoryChannelsRepo implements ChannelsRepo {
   async updateSocialToken(id: number, accessToken: string, expiresAt: number | null) {
     const s = this.social.find((x) => x.id === id);
     if (s) Object.assign(s, { accessToken, tokenExpiresAt: expiresAt });
+  }
+  async updateRefreshToken(id: number, refreshToken: string, expiresAt: number | null) {
+    const s = this.social.find((x) => x.id === id);
+    if (s) Object.assign(s, { refreshToken, refreshExpiresAt: expiresAt });
   }
   async listExpiring(channel: SocialKind, beforeUnix: number) {
     return this.social

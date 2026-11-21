@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSessionToken, parseSessionToken } from "@/lib/auth";
 import { MemoryAccountsRepo } from "@/lib/crm/accounts-repo";
+import { CHANNEL_IDS } from "@/lib/crm/channels";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/crm/passwords";
 import {
   accountPath,
@@ -160,7 +161,7 @@ describe("Equipo", () => {
 
   it("los administradores y supervisores ven todos los canales", async () => {
     const { user } = await createUser(repo, SUPER, ACC, { name: "Diego", email: "d@x.com", role: "supervisor", channels: [] });
-    expect(user.channels).toHaveLength(6);
+    expect(user.channels).toHaveLength(CHANNEL_IDS.length);
   });
 
   it("los links vencen a los 7 días", async () => {
@@ -330,7 +331,7 @@ describe("permisos", () => {
     const agent = { role: "agent" as const, channels: ["wa" as const] };
     expect(canUseChannel(agent, "wa")).toBe(true);
     expect(canUseChannel(agent, "ig")).toBe(false);
-    expect(allowedChannels({ role: "supervisor", channels: [] })).toHaveLength(6);
+    expect(allowedChannels({ role: "supervisor", channels: [] })).toHaveLength(CHANNEL_IDS.length);
   });
 
   it("desarma las rutas por cuenta", () => {

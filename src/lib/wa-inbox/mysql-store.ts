@@ -178,6 +178,7 @@ function mapMessage(row: MessageRow): InboxMessage {
 function businessAccountChannel(channel: ChannelId) {
   if (channel === "fb" || channel === "fbc") return "fb";
   if (channel === "th") return "th";
+  if (channel === "ttc" || channel === "ttm") return "tt";
   return "ig";
 }
 
