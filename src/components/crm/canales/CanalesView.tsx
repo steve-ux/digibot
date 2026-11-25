@@ -50,6 +50,7 @@ const PROVIDERS: {
       "Una cuenta profesional de Instagram (de empresa o de creador).",
       "Que la cuenta esté dentro de un portfolio comercial de Meta.",
       "En la app de Instagram del celular: Configuración → Mensajes y respuestas a historias → Controles de mensajes → Herramientas conectadas → Permitir acceso a los mensajes.",
+      "Si Meta te pide elegir una cuenta publicitaria, no es obligatorio: podés seguir sin elegir ninguna.",
     ],
   },
   {

@@ -280,6 +280,14 @@ export function usePolling(
   }, [intervalMs, key]);
 }
 
+// false en el render del servidor y en la hidratación; true después. Las horas se calculan
+// recién en el navegador: el servidor está en UTC y mostraría la hora corrida.
+export function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted;
+}
+
 export function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
   useEffect(() => {

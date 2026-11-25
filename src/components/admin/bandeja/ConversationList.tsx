@@ -4,7 +4,7 @@ import { CHANNEL_IDS, CHANNELS, type ChannelId } from "@/lib/crm/channels";
 import Icon from "@/components/crm/Icon";
 import type { InboxConversation } from "@/lib/wa-inbox/types";
 import Avatar from "./Avatar";
-import { displayName, formatListTime, previewText, type TeamMember } from "./utils";
+import { displayName, formatListTime, previewText, useMounted, type TeamMember } from "./utils";
 
 export type ChannelFilter = "all" | ChannelId;
 export type StatusFilter = "open" | "pending" | "mine" | "resolved";
@@ -68,6 +68,7 @@ function Row({
   team: TeamMember[];
   onOpen: () => void;
 }) {
+  const mounted = useMounted();
   const open = c.status !== "resolved";
   const unread = c.unreadCount > 0 && !selected;
   const bot = c.botActive && open;
@@ -93,11 +94,8 @@ function Row({
           <span className={`min-w-0 flex-1 truncate text-[15px] text-crm-ink ${unread ? "font-bold" : "font-semibold"}`}>
             {name}
           </span>
-          <span
-            suppressHydrationWarning
-            className={`shrink-0 text-xs font-semibold ${unread ? "text-crm-primary" : "text-crm-muted"}`}
-          >
-            {formatListTime(c.lastMessageAt)}
+          <span className={`shrink-0 text-xs font-semibold ${unread ? "text-crm-primary" : "text-crm-muted"}`}>
+            {mounted ? formatListTime(c.lastMessageAt) : ""}
           </span>
         </div>
         <div className="mt-[3px] flex items-center gap-2">
