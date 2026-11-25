@@ -251,7 +251,7 @@ export class MySqlInboxStore implements InboxStore {
     const [rows] = await getPool().query<ConversationRow[]>(
       `SELECT ${CONVERSATION_COLUMNS}
        FROM web_wa_conversations
-       WHERE client_id = ?
+       WHERE client_id = ? AND archived_at IS NULL
        ORDER BY last_message_at IS NULL, last_message_at DESC, id DESC
        LIMIT ?`,
       [accountId, limit]
@@ -279,7 +279,8 @@ export class MySqlInboxStore implements InboxStore {
          unread_count = unread_count + 1,
          session_count = session_count + IF(status = 'resolved', 1, 0),
          status = 'open',
-         resolved_at = NULL`;
+         resolved_at = NULL,
+         archived_at = NULL`;
     const author: ActivityAuthor = activity.author ?? (activity.inbound ? "customer" : "agent");
     const params: unknown[] = [
       activity.at,
@@ -337,6 +338,9 @@ export class MySqlInboxStore implements InboxStore {
     if (patch.note !== undefined) {
       sets.push("note = ?");
       params.push(patch.note);
+    }
+    if (patch.archived !== undefined) {
+      sets.push(patch.archived ? "archived_at = COALESCE(archived_at, NOW())" : "archived_at = NULL");
     }
     if (sets.length === 0) return;
     params.push(id);

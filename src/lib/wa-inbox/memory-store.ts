@@ -97,7 +97,7 @@ export class MemoryInboxStore implements InboxStore {
 
   async listConversations(accountId: number, limit: number) {
     return this.conversations
-      .filter((c) => c.accountId === accountId)
+      .filter((c) => c.accountId === accountId && !c.archivedAt)
       .sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0))
       .slice(0, limit)
       .map((c) => this.toConversation(c));
@@ -119,6 +119,7 @@ export class MemoryInboxStore implements InboxStore {
     }
     if (activity.inbound && !activity.historical) {
       c.unreadCount += 1;
+      c.archivedAt = null;
       if (c.status === "resolved") {
         c.sessionCount += 1;
         c.status = "open";
@@ -129,10 +130,12 @@ export class MemoryInboxStore implements InboxStore {
   async updateConversation(id: number, patch: ConversationPatch) {
     const c = this.conversations.find((x) => x.id === id);
     if (!c) return;
+    const { archived, ...rest } = patch;
     Object.assign(
       c,
-      Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined))
+      Object.fromEntries(Object.entries(rest).filter(([, value]) => value !== undefined))
     );
+    if (archived !== undefined) c.archivedAt = archived ? (c.archivedAt ?? nowUnix()) : null;
     if (patch.status === "resolved") c.unreadCount = 0;
   }
 

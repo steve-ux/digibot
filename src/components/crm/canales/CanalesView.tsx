@@ -114,7 +114,8 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error("No se pudo conectar con el servidor.");
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || "Algo salió mal. Probá de nuevo.");
+  // Sin mensaje propio (ej. 502/504 del proxy): se muestra el código para poder rastrearlo.
+  if (!res.ok) throw new Error(data.message || `Algo salió mal (error ${res.status}). Probá de nuevo.`);
   return data as T;
 }
 

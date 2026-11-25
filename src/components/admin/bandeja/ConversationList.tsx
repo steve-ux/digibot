@@ -61,12 +61,15 @@ function Row({
   meId,
   team,
   onOpen,
+  onArchive,
 }: {
   c: InboxConversation;
   selected: boolean;
   meId: number;
   team: TeamMember[];
   onOpen: () => void;
+  // Solo si quien mira puede archivar
+  onArchive?: () => void;
 }) {
   const mounted = useMounted();
   const open = c.status !== "resolved";
@@ -80,54 +83,68 @@ function Row({
   const replied = c.channel === "ttc" && c.lastMessageAuthor !== null && c.lastMessageAuthor !== "customer";
 
   return (
-    <button
-      onClick={onOpen}
-      aria-current={selected ? "true" : undefined}
-      aria-label={`${name}, ${CHANNELS[c.channel].name}${unread ? `, ${c.unreadCount} sin leer` : ""}`}
-      className={`mb-0.5 flex w-full items-start gap-3 rounded-[14px] p-3 text-left transition-colors ${
-        selected ? "bg-crm-tint" : "hover:bg-crm-surf"
-      }`}
-    >
-      <Avatar conversation={c} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className={`min-w-0 flex-1 truncate text-[15px] text-crm-ink ${unread ? "font-bold" : "font-semibold"}`}>
-            {name}
-          </span>
-          <span className={`shrink-0 text-xs font-semibold ${unread ? "text-crm-primary" : "text-crm-muted"}`}>
-            {mounted ? formatListTime(c.lastMessageAt) : ""}
-          </span>
-        </div>
-        <div className="mt-[3px] flex items-center gap-2">
-          <span className={`min-w-0 flex-1 truncate text-sm ${unread ? "text-crm-ink" : "text-crm-muted"}`}>
-            {previewText(c) || "—"}
-          </span>
-          {unread && (
-            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-pill bg-crm-primary px-1.5 text-[11px] font-bold text-white">
-              {c.unreadCount > 99 ? "99+" : c.unreadCount}
+    <div className="group relative">
+      <button
+        onClick={onOpen}
+        aria-current={selected ? "true" : undefined}
+        aria-label={`${name}, ${CHANNELS[c.channel].name}${unread ? `, ${c.unreadCount} sin leer` : ""}`}
+        className={`mb-0.5 flex w-full items-start gap-3 rounded-[14px] p-3 text-left transition-colors ${
+          selected ? "bg-crm-tint" : "hover:bg-crm-surf"
+        }`}
+      >
+        <Avatar conversation={c} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className={`min-w-0 flex-1 truncate text-[15px] text-crm-ink ${unread ? "font-bold" : "font-semibold"}`}>
+              {name}
             </span>
-          )}
-        </div>
-        {(bot || assigneeShort || closedWindow || replied) && (
-          <div className="mt-[7px] flex flex-wrap items-center gap-1.5">
-            {bot && (
-              <Pill tone="tint">
-                <span className="h-1.5 w-1.5 rounded-full bg-crm-accent shadow-[0_0_0_1.5px_rgba(22,163,74,.2)]" />
-                IA respondiendo
-              </Pill>
-            )}
-            {assigneeShort && <Pill tone="neutral">{assigneeShort}</Pill>}
-            {closedWindow && <Pill tone="warn">Ventana cerrada</Pill>}
-            {replied && (
-              <Pill tone="success">
-                <Icon name="check" size={12} />
-                Respondido
-              </Pill>
+            <span className={`shrink-0 text-xs font-semibold ${unread ? "text-crm-primary" : "text-crm-muted"}`}>
+              {mounted ? formatListTime(c.lastMessageAt) : ""}
+            </span>
+          </div>
+          <div className="mt-[3px] flex items-center gap-2">
+            <span className={`min-w-0 flex-1 truncate text-sm ${unread ? "text-crm-ink" : "text-crm-muted"}`}>
+              {previewText(c) || "—"}
+            </span>
+            {unread && (
+              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-pill bg-crm-primary px-1.5 text-[11px] font-bold text-white">
+                {c.unreadCount > 99 ? "99+" : c.unreadCount}
+              </span>
             )}
           </div>
-        )}
-      </div>
-    </button>
+          {(bot || assigneeShort || closedWindow || replied) && (
+            <div className="mt-[7px] flex flex-wrap items-center gap-1.5">
+              {bot && (
+                <Pill tone="tint">
+                  <span className="h-1.5 w-1.5 rounded-full bg-crm-accent shadow-[0_0_0_1.5px_rgba(22,163,74,.2)]" />
+                  IA respondiendo
+                </Pill>
+              )}
+              {assigneeShort && <Pill tone="neutral">{assigneeShort}</Pill>}
+              {closedWindow && <Pill tone="warn">Ventana cerrada</Pill>}
+              {replied && (
+                <Pill tone="success">
+                  <Icon name="check" size={12} />
+                  Respondido
+                </Pill>
+              )}
+            </div>
+          )}
+        </div>
+      </button>
+      {onArchive && (
+        // Debajo de la hora; aparece al pasar el mouse (en pantallas táctiles queda visible).
+        <button
+          onClick={onArchive}
+          title="Archivar conversación"
+          aria-label={`Archivar la conversación con ${name}`}
+          className="absolute right-2.5 top-[30px] flex h-7 items-center gap-1 rounded-pill border border-crm-border bg-crm-card px-2 text-[11px] font-bold text-crm-muted opacity-100 shadow-sm transition-opacity hover:border-crm-primary hover:text-crm-primary focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+        >
+          <Icon name="inbox" size={13} />
+          Archivar
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -144,6 +161,7 @@ export default function ConversationList({
   onStatus,
   onSearch,
   onOpen,
+  onArchive,
   banner,
   empty,
   channels = CHANNEL_IDS,
@@ -160,6 +178,8 @@ export default function ConversationList({
   onStatus: (s: StatusFilter) => void;
   onSearch: (q: string) => void;
   onOpen: (c: InboxConversation) => void;
+  // Archivar desde la lista (no se pasa si quien mira no puede)
+  onArchive?: (c: InboxConversation) => void;
   banner?: React.ReactNode;
   empty?: React.ReactNode;
   // Canales visibles para esta persona (chips de filtro)
@@ -248,7 +268,15 @@ export default function ConversationList({
 
       <div className="crm-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-3.5">
         {conversations.map((c) => (
-          <Row key={c.id} c={c} selected={c.id === selectedId} meId={meId} team={team} onOpen={() => onOpen(c)} />
+          <Row
+            key={c.id}
+            c={c}
+            selected={c.id === selectedId}
+            meId={meId}
+            team={team}
+            onOpen={() => onOpen(c)}
+            onArchive={onArchive ? () => onArchive(c) : undefined}
+          />
         ))}
         {conversations.length === 0 &&
           (empty ?? (

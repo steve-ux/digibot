@@ -5,6 +5,7 @@ import {
   applyConversationAction,
   parseConversationAction,
 } from "@/lib/crm/conversation-actions";
+import { canArchiveConversations } from "@/lib/crm/permissions";
 import { getTeam } from "@/lib/crm/session";
 import { getMySqlSettingsRepo } from "@/lib/crm/settings-mysql";
 import { isDbConfigured } from "@/lib/db";
@@ -34,7 +35,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 // Acciones del panel: { action: "resolve" | "reopen" | "take" | "release" }
 // { action: "assign", assigneeId } · { action: "tags", tags } · { action: "note", note }
-// { action: "attributes", values: { dni: "30111222", obra_social: null } }
+// { action: "attributes", values: { dni: "30111222", obra_social: null } } · { action: "archive" }
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { accountId, id: rawId } = await params;
   const auth = await requireAccountApi(accountId, "inbox");
@@ -47,6 +48,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const input = parseConversationAction(await req.json().catch(() => null));
   if (!input) {
     return NextResponse.json({ error: "invalid_body", message: "Acción inválida." }, { status: 400 });
+  }
+  if (input.action === "archive" && !canArchiveConversations(auth.user.role)) {
+    return NextResponse.json(
+      { error: "forbidden", message: "Solo un administrador o supervisor puede archivar conversaciones." },
+      { status: 403 }
+    );
   }
 
   try {

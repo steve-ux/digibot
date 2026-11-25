@@ -8,11 +8,18 @@ export class ConnectError extends Error {
   constructor(
     message: string,
     public readonly httpStatus = 400,
-    public readonly detail: string | null = null
+    public readonly detail: string | null = null,
+    // Código de error de Meta, si vino
+    public readonly metaCode: number | null = null
   ) {
     super(message);
   }
 }
+
+// Límites de llamadas de Meta (por app, por usuario o por cuenta de Instagram/página).
+export const RATE_LIMIT_CODES = new Set([4, 17, 32, 613, 80001, 80002, 80006]);
+const RATE_LIMITED =
+  "Meta limitó por un rato las consultas a esta cuenta (demasiadas llamadas). Esperá unos minutos y probá de nuevo.";
 
 type Query = Record<string, string | undefined>;
 
@@ -36,15 +43,19 @@ async function call(
   }
   let res: Response;
   try {
-    res = await fetch(url, { method, headers, body, cache: "no-store" });
+    // Con límite: si Meta no contesta, mejor un error claro que un 504 del proxy sin mensaje.
+    res = await fetch(url, { method, headers, body, cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch (err) {
+    console.error(`[canales] ${method} ${path}: ${(err as Error).message}`);
     throw new ConnectError("No pudimos comunicarnos con Meta. Probá de nuevo en un rato.", 502, (err as Error).message);
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data?.error) {
     const detail = data?.error?.message ?? `HTTP ${res.status}`;
-    console.error(`[canales] ${method} ${path}: ${detail}`);
-    throw new ConnectError(humanError, 502, detail);
+    const code = typeof data?.error?.code === "number" ? data.error.code : null;
+    console.error(`[canales] ${method} ${path}: (#${code ?? res.status}) ${detail}`);
+    if (code !== null && RATE_LIMIT_CODES.has(code)) throw new ConnectError(RATE_LIMITED, 429, detail, code);
+    throw new ConnectError(humanError, 502, detail, code);
   }
   return data;
 }
@@ -224,8 +235,9 @@ export async function fetchAssignedInstagramAccounts(token: string): Promise<Met
   try {
     raw = await read("id,username,profile_picture_url");
   } catch (err) {
-    // La doc solo garantiza id y username: si la foto no se puede pedir, sin foto.
-    if (!(err instanceof ConnectError)) throw err;
+    // La doc solo garantiza id y username: si la foto no se puede pedir (#100), sin foto.
+    // Con cualquier otro error (ej. límite de llamadas) no se reintenta: sería otra llamada más.
+    if (!(err instanceof ConnectError) || err.metaCode !== 100) throw err;
     raw = await read("id,username");
   }
   return raw

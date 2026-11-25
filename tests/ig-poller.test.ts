@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SocialAccount } from "@/lib/meta-social/accounts";
-import { pollInstagramDms, resetPollerCursors, type PollAccount } from "@/lib/meta-social/ig-poller";
+import { MetaRateLimitError, pollInstagramDms, resetPollerCursors, type PollAccount } from "@/lib/meta-social/ig-poller";
 import { MemoryInboxStore } from "@/lib/wa-inbox/memory-store";
 
 const IG = "17841419643472008";
@@ -102,5 +102,21 @@ describe("pollInstagramDms", () => {
     });
     expect(calls).toBe(2);
     expect(n).toBe(1);
+  });
+
+  it("si Meta avisa límite de llamadas (#80002), esa cuenta se deja de consultar un rato", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    let calls = 0;
+    const d = {
+      ...deps([]),
+      fetchConversations: async () => {
+        calls++;
+        throw new MetaRateLimitError("(#80002) There have been too many calls to this Instagram account.", 30);
+      },
+    };
+    await pollInstagramDms(d);
+    await pollInstagramDms(d);
+    await pollInstagramDms(d);
+    expect(calls).toBe(1);
   });
 });

@@ -9,7 +9,7 @@ import type { AttributeValues, CustomAttribute } from "@/lib/crm/attributes";
 import { CHANNEL_IDS, tiktokDemoEnabled, type ChannelId } from "@/lib/crm/channels";
 import type { ConversationAction } from "@/lib/crm/conversation-actions";
 import type { Label } from "@/lib/crm/labels";
-import { accountPath } from "@/lib/crm/permissions";
+import { accountPath, canArchiveConversations } from "@/lib/crm/permissions";
 import { newInboundChannels } from "@/lib/crm/sound-prefs";
 import type { InboxConversation, InboxMessage } from "@/lib/wa-inbox/types";
 import { getRealApi, type InboxApi } from "./api";
@@ -21,7 +21,7 @@ import ConversationList, {
   type StatusFilter,
 } from "./ConversationList";
 import { demoTeam, getDemoApi } from "./demo-api";
-import { POLL_INTERVAL_MS, usePolling, useMediaQuery, type TeamMember } from "./utils";
+import { POLL_INTERVAL_MS, displayName, usePolling, useMediaQuery, type TeamMember } from "./utils";
 
 export type BandejaLoadState =
   | { kind: "loading" }
@@ -270,6 +270,30 @@ function Bandeja({
       act({ action: "release" }, (c) => ({ ...c, botActive: true }), "DigiBot retoma la conversación"),
   };
 
+  // Archivar desde la lista: sale de la bandeja (vuelve sola si el cliente escribe).
+  const archive = async (c: InboxConversation) => {
+    mute(c.id);
+    setState((prev) =>
+      prev.kind === "ready" ? { ...prev, conversations: prev.conversations.filter((x) => x.id !== c.id) } : prev
+    );
+    if (selectedId === c.id) {
+      window.history.replaceState(null, "", chatUrl(accountId, null));
+      pushedHistory.current = false;
+      setSelectedId(null);
+    }
+    try {
+      await api.act(c.id, { action: "archive" });
+      toast(`Conversación con ${displayName(c)} archivada`);
+    } catch (err) {
+      setState((prev) =>
+        prev.kind === "ready" && !prev.conversations.some((x) => x.id === c.id)
+          ? { ...prev, conversations: [...prev.conversations, c] }
+          : prev
+      );
+      toast((err as Error).message || "No se pudo archivar la conversación.", "error");
+    }
+  };
+
   const assign = (assigneeId: number | null) => {
     const who = team.find((m) => m.id === assigneeId);
     const text = !who ? "Sin asignar" : who.id === me.id ? "Asignada a vos" : `Asignada a ${who.name}`;
@@ -404,6 +428,7 @@ function Bandeja({
           onStatus={setStatus}
           onSearch={setSearch}
           onOpen={open}
+          onArchive={canArchiveConversations(user.role) ? archive : undefined}
           banner={banner}
           empty={listEmpty}
           channels={demo ? (tiktok ? [...CHANNEL_IDS, "ttm"] : CHANNEL_IDS) : allowedChannels}

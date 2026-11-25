@@ -133,6 +133,11 @@ export const LEGACY_PAGES: Record<string, string> = {
 };
 
 // ¿Puede esta sesión entrar a esta cuenta? El superadmin entra a todas.
+// Archivar conversaciones (las saca de la bandeja de todo el equipo): no los agentes.
+export function canArchiveConversations(role: CrmRole) {
+  return role === "superadmin" || role === "admin" || role === "supervisor";
+}
+
 export function canEnterAccount(session: { role: CrmRole; acc: number | null }, accountId: number) {
   return session.role === "superadmin" || session.acc === accountId;
 }

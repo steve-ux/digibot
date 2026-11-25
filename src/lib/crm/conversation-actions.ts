@@ -20,7 +20,9 @@ export type ConversationAction =
   | { action: "tags"; tags: string[] }
   // Valores de atributos propios: { dni: "30111222", obra_social: null } (null borra)
   | { action: "attributes"; values: Record<string, unknown> }
-  | { action: "note"; note: string };
+  | { action: "note"; note: string }
+  // Sale de la lista sin borrar nada; vuelve sola si el cliente escribe de nuevo.
+  | { action: "archive" };
 
 // Lo que la acción necesita saber de la cuenta.
 export interface ActionContext {
@@ -63,6 +65,7 @@ export function parseConversationAction(body: unknown): ConversationAction | nul
     case "reopen":
     case "take":
     case "release":
+    case "archive":
       return { action: data.action };
     case "assign": {
       const id = data.assigneeId;
@@ -180,6 +183,9 @@ export async function applyConversationAction(
         throw new ConversationActionError(`La nota no puede superar los ${MAX_NOTE_LENGTH} caracteres.`, 400);
       }
       patch = { note: input.note };
+      break;
+    case "archive":
+      patch = { archived: true };
       break;
   }
 

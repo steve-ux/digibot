@@ -51,6 +51,8 @@ export interface ConversationPatch {
   // Reemplaza todos los valores (la acción ya los mezcló con los anteriores).
   attributes?: AttributeValues;
   note?: string;
+  // Archivar / desarchivar (la lista no muestra las archivadas)
+  archived?: boolean;
 }
 
 export type ActivityAuthor = "customer" | "bot" | "agent";
@@ -82,10 +84,10 @@ export interface InboxStore {
   getConversation(id: number): Promise<InboxConversation | null>;
   // Busca sin crear (para eventos como "leído" que no deben abrir conversaciones nuevas).
   findConversationId(channel: ChannelId, businessId: string, contactId: string): Promise<number | null>;
-  // Conversaciones de una cuenta, las más recientes primero.
+  // Conversaciones de una cuenta, las más recientes primero (sin las archivadas).
   listConversations(accountId: number, limit: number): Promise<InboxConversation[]>;
   // Actualiza preview/hora/autor del último mensaje; si es entrante, también
-  // last_inbound_at y no leídos, y reabre la conversación si estaba resuelta.
+  // last_inbound_at y no leídos, y reabre la conversación si estaba resuelta o archivada.
   // historical (historial de la app de WhatsApp Business): solo last_inbound_at, sin no leídos ni reabrir.
   recordActivity(
     conversationId: number,

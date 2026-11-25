@@ -228,3 +228,30 @@ describe("humanizeSendError", () => {
     expect(humanizeSendError(551, "fb").message).toMatch(/no está disponible/);
   });
 });
+
+describe("archivar conversaciones", () => {
+  it("la saca de la lista sin borrar nada y vuelve sola si el cliente escribe", async () => {
+    const id = await store.upsertConversation(PHONE_NUMBER_ID, CUSTOMER_WA_ID, "Carla");
+    await store.recordActivity(id, { preview: "Hola", at: now() - 60, inbound: true });
+    expect(parseConversationAction({ action: "archive" })).toEqual({ action: "archive" });
+
+    const { message } = await applyConversationAction(store, id, { action: "archive" }, ME, TEAM);
+    expect(message).toBeNull();
+    expect(await store.listConversations(1, 10)).toHaveLength(0);
+    expect(await store.getConversation(id)).toMatchObject({ archivedAt: expect.any(Number) });
+
+    // Lo que manda el equipo no la desarchiva; un mensaje nuevo del cliente sí.
+    await store.recordActivity(id, { preview: "Te respondo", at: now(), inbound: false });
+    expect(await store.listConversations(1, 10)).toHaveLength(0);
+    await store.recordActivity(id, { preview: "¿Sigue en pie?", at: now(), inbound: true });
+    expect((await store.listConversations(1, 10)).map((c) => c.id)).toEqual([id]);
+  });
+
+  it("solo admin, supervisor y superadmin pueden archivar", async () => {
+    const { canArchiveConversations } = await import("@/lib/crm/permissions");
+    expect(canArchiveConversations("admin")).toBe(true);
+    expect(canArchiveConversations("supervisor")).toBe(true);
+    expect(canArchiveConversations("superadmin")).toBe(true);
+    expect(canArchiveConversations("agent")).toBe(false);
+  });
+});

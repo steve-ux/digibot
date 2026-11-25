@@ -53,6 +53,8 @@ export interface InboxConversation {
   // Canales sin número (Instagram/Messenger): @usuario o nombre de la cuenta.
   handle?: string | null;
   post?: InboxPost | null;
+  // Archivada desde la bandeja (no aparece en la lista hasta que el cliente vuelva a escribir)
+  archivedAt?: number | null;
 }
 
 export interface InboxMessage {
