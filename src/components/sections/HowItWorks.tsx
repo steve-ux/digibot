@@ -28,12 +28,16 @@ export default function HowItWorks() {
         </p>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {STEPS.map((step) => (
+          {STEPS.map((step, i) => (
             <div
               key={step.number}
               className="rounded-[22px] border border-border bg-card p-8"
             >
-              <div className="font-poppins text-[15px] font-extrabold tracking-widest text-primary">
+              <div
+                className="neon-number font-poppins text-5xl font-extrabold leading-none tracking-wider sm:text-6xl"
+                // Desfasa el parpadeo para que no titilen los tres a la vez
+                style={{ animationDelay: `${i * 1.3}s` }}
+              >
                 {step.number}
               </div>
               <h3 className="mt-4 mb-2.5 font-poppins text-xl font-bold text-foreground">

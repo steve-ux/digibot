@@ -4,6 +4,21 @@ export default function SalesFeature() {
   return (
     <section className="mx-auto max-w-[1200px] px-5 py-16 sm:px-8 md:py-28">
       <div className="flex flex-wrap items-center gap-10 lg:gap-16">
+        <div className="min-w-0 flex-[1_1_300px]">
+          <div className="font-poppins text-sm font-bold tracking-[2px] text-primary">
+            VENTAS
+          </div>
+          <h2 className="mt-4 font-poppins text-3xl font-extrabold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[42px]">
+            Vendé en automático tus productos, día y noche
+          </h2>
+          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+            Entrenamos el bot para uso exclusivo de tu marca y lo nutrimos de
+            una base de datos pensada y ajustada a cada necesidad. Mantenemos
+            actualizado tu bot con datos en tiempo real de tus productos,
+            precios o la información relevante de tu negocio.
+          </p>
+        </div>
+
         <div className="min-w-0 flex-[1.3_1_430px] rounded-[26px] border border-border bg-card p-7">
           <div className="chat-pattern flex flex-col gap-3 rounded-2xl p-4">
             <div className="self-end max-w-[70%] rounded-2xl rounded-br-[4px] bg-card px-4 py-3 text-[15px] text-foreground shadow-sm">
@@ -37,21 +52,6 @@ export default function SalesFeature() {
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="min-w-0 flex-[1_1_300px]">
-          <div className="font-poppins text-sm font-bold tracking-[2px] text-primary">
-            VENTAS
-          </div>
-          <h2 className="mt-4 font-poppins text-3xl font-extrabold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-[42px]">
-            Vendé en automático tus productos, día y noche
-          </h2>
-          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-            Entrenamos el bot para uso exclusivo de tu marca y lo nutrimos de
-            una base de datos pensada y ajustada a cada necesidad. Mantenemos
-            actualizado tu bot con datos en tiempo real de tus productos,
-            precios o la información relevante de tu negocio.
-          </p>
         </div>
       </div>
     </section>

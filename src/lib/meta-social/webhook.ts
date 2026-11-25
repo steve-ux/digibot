@@ -125,6 +125,7 @@ export function describeSocialMessage(message: SocialMessage) {
 
 // Acepta milisegundos, segundos o ISO 8601.
 const toUnix = (value: number | string | undefined) => {
+  if (typeof value === "string" && /^\d+$/.test(value)) value = Number(value);
   if (typeof value === "string") {
     const ms = Date.parse(value);
     return Number.isFinite(ms) ? Math.floor(ms / 1000) : Math.floor(Date.now() / 1000);
@@ -168,10 +169,12 @@ async function enrichContact(
 }
 
 // Un eco de un mensaje que mandamos desde el panel puede llegar antes de que
-// guardemos su mid: si hay un saliente "sending" con el mismo texto, es ese.
+// guardemos su mid: si hay un saliente "sending" con el mismo texto, es ese. También
+// la copia de una respuesta por privado (se guarda en el DM sin mid) y lo que trae la
+// sincronización de DMs (ig-poller.ts), que no tiene app_id.
 async function isOwnPendingEcho(store: InboxStore, conversationId: number, body: string) {
   const recent = await store.listMessages(conversationId, 0, 20);
-  return recent.some((m) => m.direction === "out" && m.status === "sending" && m.body === body);
+  return recent.some((m) => m.direction === "out" && m.body === body && (m.status === "sending" || m.wamid === null));
 }
 
 async function handleMessaging(
@@ -376,6 +379,8 @@ async function handleFacebookFeed(
   );
 }
 
+const MESSAGING_FIELDS = new Set(["messages", "messaging_seen", "message_reads", "message_deliveries", "messaging_postbacks"]);
+
 export async function processSocialWebhook(payload: unknown, deps: SocialWebhookDeps = {}) {
   const data = payload as SocialPayload;
   const channel: "ig" | "fb" | null = data?.object === "page" ? "fb" : data?.object === "instagram" ? "ig" : null;
@@ -400,6 +405,12 @@ export async function processSocialWebhook(payload: unknown, deps: SocialWebhook
       await handleMessaging(channel, account, event, store, resolved);
     }
     for (const change of entry.changes ?? []) {
+      // Los mensajes normalmente vienen en messaging[]; algunas entregas (y el "Probar"
+      // del panel de Meta) los mandan como changes[field=messages]: se tratan igual.
+      if (change.field && MESSAGING_FIELDS.has(change.field) && change.value) {
+        await handleMessaging(channel, account, change.value as MessagingEvent, store, resolved);
+        continue;
+      }
       if (channel === "ig" && change.field === "comments" && change.value) {
         await handleInstagramComment(account, change.value as InstagramCommentValue, entry.time, store, resolved);
       } else if (channel === "fb" && change.field === "feed" && change.value) {

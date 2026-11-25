@@ -27,7 +27,7 @@ export default function Hero() {
               className="inline-block h-[7px] w-[7px] rounded-full bg-secondary"
               style={{ animation: "beat 1.6s ease-in-out infinite" }}
             />
-            WhatsApp · Instagram · Facebook
+            WhatsApp · Instagram · Facebook · YouTube · TikTok y más...
           </div>
 
           <h1 className="mt-6 font-poppins text-[38px] font-extrabold leading-[1.04] tracking-tight text-foreground sm:text-5xl lg:text-[72px]">

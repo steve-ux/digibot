@@ -7,6 +7,7 @@
 // WA_BACKGROUND_JOBS=on|off. Por defecto: prendido en producción y apagado en `next dev`
 // (la base es compartida con producción: así el dev local no compite con el server).
 
+import { pollInstagramDms, pollIntervalSeconds } from "../meta-social/ig-poller";
 import { processMetaWebhookQueue } from "../meta-social/queue";
 import { runHealthSweep } from "./health";
 import { processWebhookJobs } from "./webhook-events";
@@ -41,7 +42,12 @@ export function startWaScheduler() {
   // Cobro recurrente (dLocal Go): cada hora; cobra desde BILLING_RUN_HOUR. Idempotente.
   const billing = setInterval(safe("cobro recurrente", () => import("../billing/job").then((m) => m.runBillingJob())), BILLING_EVERY_MS);
   const billingFirst = setTimeout(safe("cobro recurrente", () => import("../billing/job").then((m) => m.runBillingJob())), HEALTH_FIRST_RUN_MS);
-  for (const t of [jobs, meta, health, first, billing, billingFirst]) t.unref?.();
+  const timers = [jobs, meta, health, first, billing, billingFirst];
+  // DMs de Instagram por la API de conversaciones (mientras Meta no mande esos webhooks).
+  if (pollIntervalSeconds() > 0) {
+    timers.push(setInterval(safe("DMs de Instagram", () => pollInstagramDms()), pollIntervalSeconds() * 1000));
+  }
+  for (const t of timers) t.unref?.();
   console.info("[wa-scheduler] Tareas de WhatsApp en segundo plano iniciadas.");
 }
 

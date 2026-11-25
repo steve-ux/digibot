@@ -199,6 +199,29 @@ describe("ruteo y aislamiento", () => {
     ]);
   });
 
+  it("acepta DMs de Instagram en formato changes[field=messages] (como el 'Probar' de Meta)", async () => {
+    await processSocialWebhook(
+      {
+        object: "instagram",
+        entry: [
+          {
+            id: IG_A,
+            time: now(),
+            changes: [
+              {
+                field: "messages",
+                value: { sender: { id: IGSID }, recipient: { id: IG_A }, timestamp: String(now()), message: { mid: "ig.chg", text: "Hola" } },
+              },
+            ],
+          },
+        ],
+      },
+      deps()
+    );
+    expect(store.messages).toEqual([expect.objectContaining({ wamid: "ig.chg", direction: "in", body: "Hola" })]);
+    expect(store.conversations[0]).toMatchObject({ channel: "ig", waId: IGSID, accountId: 1 });
+  });
+
   it("un evento de una página que nadie conectó se descarta (no cae en otra cuenta)", async () => {
     await processSocialWebhook(messengerDm("m.x", "Hola", "999999"), deps());
     await processSocialWebhook({ ...igDm("ig.x", "hola"), entry: [{ ...igDm("ig.x", "hola").entry[0], id: "17849999" }] }, deps());

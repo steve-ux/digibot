@@ -49,7 +49,7 @@ const PROVIDERS: {
     requirements: [
       "Una cuenta profesional de Instagram (de empresa o de creador).",
       "Que la cuenta esté dentro de un portfolio comercial de Meta.",
-      "Activar en Instagram el acceso a mensajes para herramientas conectadas (Configuración → Mensajes).",
+      "En la app de Instagram del celular: Configuración → Mensajes y respuestas a historias → Controles de mensajes → Herramientas conectadas → Permitir acceso a los mensajes.",
     ],
   },
   {

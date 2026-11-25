@@ -6,6 +6,7 @@ import HowItWorks from "../components/sections/HowItWorks";
 import WhatIs from "../components/sections/WhatIs";
 import PanelCrm from "../components/sections/PanelCrm";
 import WhatsAppFeature from "../components/sections/WhatsAppFeature";
+import Multiplatform from "../components/sections/Multiplatform";
 import SalesFeature from "../components/sections/SalesFeature";
 import Comparison from "../components/sections/Comparison";
 import Benefits from "../components/sections/Benefits";
@@ -23,6 +24,7 @@ export default function Home() {
         <WhatIs />
         <PanelCrm />
         <WhatsAppFeature />
+        <Multiplatform />
         <SalesFeature />
         <Comparison />
         <Benefits />
