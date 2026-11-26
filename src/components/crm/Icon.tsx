@@ -16,6 +16,7 @@ export type IconName =
   | "tag"
   | "trash"
   | "heart"
+  | "help"
   | "inbox"
   | "info"
   | "lock"
@@ -33,6 +34,7 @@ export type IconName =
   | "template"
   | "user"
   | "users"
+  | "whatsapp"
   | "x";
 
 export default function Icon({

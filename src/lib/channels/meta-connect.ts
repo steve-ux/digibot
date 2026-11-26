@@ -21,6 +21,22 @@ export const RATE_LIMIT_CODES = new Set([4, 17, 32, 613, 80001, 80002, 80006]);
 const RATE_LIMITED =
   "Meta limitó por un rato las consultas a esta cuenta (demasiadas llamadas). Esperá unos minutos y probá de nuevo.";
 
+// Si Meta dice cuánto falta para recuperar el acceso (estimated_time_to_regain_access, en minutos), se avisa.
+function rateLimitedMessage(usageHeader: string | null) {
+  let minutes = 0;
+  try {
+    const usage = JSON.parse(usageHeader ?? "{}") as Record<string, { estimated_time_to_regain_access?: number }[]>;
+    for (const entries of Object.values(usage)) {
+      for (const u of Array.isArray(entries) ? entries : []) minutes = Math.max(minutes, u.estimated_time_to_regain_access ?? 0);
+    }
+  } catch {
+    // header raro: mensaje genérico
+  }
+  if (minutes <= 0) return RATE_LIMITED;
+  const wait = minutes >= 90 ? `unas ${Math.round(minutes / 60)} horas` : `unos ${minutes} minutos`;
+  return `Meta limitó por un rato las consultas a esta cuenta (demasiadas llamadas). Probá de nuevo en ${wait}.`;
+}
+
 type Query = Record<string, string | undefined>;
 
 async function call(
@@ -53,8 +69,9 @@ async function call(
   if (!res.ok || data?.error) {
     const detail = data?.error?.message ?? `HTTP ${res.status}`;
     const code = typeof data?.error?.code === "number" ? data.error.code : null;
-    console.error(`[canales] ${method} ${path}: (#${code ?? res.status}) ${detail}`);
-    if (code !== null && RATE_LIMIT_CODES.has(code)) throw new ConnectError(RATE_LIMITED, 429, detail, code);
+    const usage = res.headers.get("x-business-use-case-usage") ?? res.headers.get("x-app-usage");
+    console.error(`[canales] ${method} ${path}: (#${code ?? res.status}) ${detail}${usage ? ` · uso: ${usage}` : ""}`);
+    if (code !== null && RATE_LIMIT_CODES.has(code)) throw new ConnectError(rateLimitedMessage(usage), 429, detail, code);
     throw new ConnectError(humanError, 502, detail, code);
   }
   return data;
@@ -235,10 +252,28 @@ export async function fetchAssignedInstagramAccounts(token: string): Promise<Met
   try {
     raw = await read("id,username,profile_picture_url");
   } catch (err) {
-    // La doc solo garantiza id y username: si la foto no se puede pedir (#100), sin foto.
-    // Con cualquier otro error (ej. límite de llamadas) no se reintenta: sería otra llamada más.
-    if (!(err instanceof ConnectError) || err.metaCode !== 100) throw err;
-    raw = await read("id,username");
+    if (!(err instanceof ConnectError)) throw err;
+    if (err.metaCode === 100) {
+      // La doc solo garantiza id y username: si la foto no se puede pedir (#100), sin foto.
+      raw = await read("id,username");
+    } else if (err.httpStatus === 429) {
+      // Límite de UNA cuenta de Instagram (#80002): pedir username/foto lee cada cuenta y alcanza
+      // con que una del portfolio esté limitada para que falle todo el listado. Se piden solo los
+      // ids y después el nombre de a una, sin frenar si alguna no contesta.
+      raw = await read("id");
+      raw = await Promise.all(
+        raw.map(async (a) => {
+          try {
+            const one = await call(graph(), `/${String(a.id)}`, { token, query: { fields: "username" } }, "");
+            return { ...a, username: one.username };
+          } catch {
+            return a;
+          }
+        })
+      );
+    } else {
+      throw err;
+    }
   }
   return raw
     .filter((a): a is { id: string; username?: string; profile_picture_url?: string } => typeof a.id === "string")

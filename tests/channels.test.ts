@@ -238,6 +238,45 @@ describe("Instagram API with Unified Login", () => {
     expect(calls.filter((c) => c.url.includes("tok-suat") && !c.url.includes("debug_token"))).toHaveLength(0);
   });
 
+  it("si una cuenta del portfolio está limitada por Meta (#80002), igual lista las cuentas", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const limited = { error: { code: 80002, message: "There have been too many calls to this Instagram account." } };
+    mockMeta([
+      [/oauth\/access_token/, { access_token: "tok-suat" }],
+      [/debug_token/, debugIg],
+      [/client_business_id/, { client_business_id: "BIZ-1" }],
+      [/assigned_instagram_accounts\?fields=id%2Cusername/, limited, 400],
+      [/assigned_instagram_accounts\?fields=id&/, { data: [{ id: "17841400000000001" }, { id: "17841400000000002" }] }],
+      [/GET .*\/17841400000000001\?fields=username/, { username: "esteban_instaok", id: "17841400000000001" }],
+      [/GET .*\/17841400000000002\?fields=username/, limited, 400],
+    ]);
+    const listed = await listInstagramAccounts(repo, CTX, "codigo-ig");
+    expect(listed.accounts.map((a) => a.id)).toEqual(["17841400000000001", "17841400000000002"]);
+    expect(listed.accounts[0].name).toBe("@esteban_instaok");
+  });
+
+  it("si Meta dice cuánto falta para recuperar el acceso, el mensaje lo avisa", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    calls = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("oauth/access_token")) return new Response(JSON.stringify({ access_token: "tok-suat" }));
+        if (url.includes("debug_token")) return new Response(JSON.stringify(debugIg));
+        if (url.includes("client_business_id")) return new Response(JSON.stringify({ client_business_id: "BIZ-1" }));
+        return new Response(JSON.stringify({ error: { code: 80002, message: "too many calls" } }), {
+          status: 400,
+          headers: { "x-business-use-case-usage": JSON.stringify({ "178": [{ type: "instagram", call_count: 100, estimated_time_to_regain_access: 45 }] }) },
+        });
+      })
+    );
+    await expect(listInstagramAccounts(repo, CTX, "codigo-ig")).rejects.toMatchObject({
+      httpStatus: 429,
+      message: expect.stringContaining("unos 45 minutos"),
+    });
+  });
+
   it("sin los permisos de Instagram no lista nada", async () => {
     mockMeta(igRoutes().map(([re, body]) => [re, re.source.includes("debug_token") ? { data: { ...debugIg.data, scopes: ["instagram_basic"] } } : body]));
     await expect(listInstagramAccounts(repo, CTX, "codigo-ig")).rejects.toMatchObject({ httpStatus: 400 });

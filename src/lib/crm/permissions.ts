@@ -70,6 +70,8 @@ export const ACCOUNT_PAGE_SECTIONS: Record<string, Section> = {
   plantillas: "templates",
   // Todos entran (perfil, sonidos, soporte); las pestañas de etiquetas y atributos piden "settings".
   configuracion: "inbox",
+  // Ayuda: chat con el bot de soporte de la plataforma (todos)
+  ayuda: "inbox",
 };
 
 // Las etiquetas y atributos se leen desde la bandeja (inbox); para modificarlos,
@@ -86,6 +88,8 @@ export const ACCOUNT_API_SECTIONS: Record<string, Section> = {
   plantillas: "templates",
   // Suscripción: plan, tarjeta, historial y cancelación (quien administra la cuenta)
   suscripcion: "settings",
+  // Chat de ayuda (reenvía al bot de soporte en n8n)
+  ayuda: "inbox",
 };
 
 export interface AccountRoute {

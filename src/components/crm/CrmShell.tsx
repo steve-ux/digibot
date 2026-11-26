@@ -338,6 +338,8 @@ export default function CrmShell({
   // Configuración la ve todo el mundo (perfil, sonidos, soporte); etiquetas y atributos, solo quien administra.
   const settingsHref = accountId ? accountPath(accountId, "configuracion") : null;
   const profileHref = settingsHref ? `${settingsHref}?tab=perfil` : null;
+  // Ayuda (chat con el bot de soporte de la plataforma): para todos los roles.
+  const helpHref = accountId ? accountPath(accountId, "ayuda") : null;
   const templatesHref = navAdmin.find((i) => i.key === "templates")?.href ?? null;
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const badgeFor = (key: string) => (key === "inbox" ? unread : 0);
@@ -443,6 +445,10 @@ export default function CrmShell({
               />
             )}
 
+            {helpHref && (
+              <SideLink item={{ href: helpHref, label: "Ayuda", icon: "help" }} active={isActive(helpHref)} badge={0} />
+            )}
+
             <button
               onClick={toggle}
               title="Cambiar tema"
@@ -529,6 +535,17 @@ export default function CrmShell({
                     }`}
                   >
                     <Icon name="settings" />
+                  </Link>
+                )}
+                {helpHref && (
+                  <Link
+                    href={helpHref}
+                    aria-label="Ayuda"
+                    className={`flex h-11 w-11 items-center justify-center rounded-full ${
+                      isActive(helpHref) ? "text-crm-primary" : "text-crm-nav"
+                    }`}
+                  >
+                    <Icon name="help" />
                   </Link>
                 )}
                 <button
