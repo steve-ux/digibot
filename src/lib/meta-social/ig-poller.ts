@@ -78,7 +78,8 @@ async function loadAccounts(): Promise<PollAccount[]> {
   const [rows] = await getPool().query<RowDataPacket[]>(
     `SELECT account_id, access_token_enc, UNIX_TIMESTAMP(COALESCE(connected_at, created_at)) AS connected_ts
      FROM web_channel_accounts
-     WHERE channel = 'ig' AND auth_type = 'ig_unified' AND status = 'connected' AND access_token_enc IS NOT NULL`
+     WHERE channel = 'ig' AND auth_type = 'ig_unified' AND status = 'connected' AND access_token_enc IS NOT NULL
+       AND health <> 'disconnected'`
   );
   return rows.map((r) => ({
     igUserId: String(r.account_id),
@@ -119,6 +120,11 @@ async function graphGet(path: string, account: PollAccount, params: Record<strin
     const code = data?.error?.code;
     const message = `(#${code ?? res.status}) ${data?.error?.message ?? "error de Meta"}`;
     if (RATE_LIMIT_CODES.has(code)) throw new MetaRateLimitError(message, MIN_BACKOFF_MINUTES);
+    if (code === 190 || code === 10 || code === 200) {
+      void import("../channels/social-health").then((m) =>
+        m.reportSocialTokenError("ig", account.igUserId, code, data?.error?.message ?? "")
+      );
+    }
     throw new Error(message);
   }
   checkUsage(res);

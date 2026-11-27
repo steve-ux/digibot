@@ -5,10 +5,11 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { decryptSecret, encryptSecret } from "../crypto";
 import { getPool } from "../db";
-import type { ChannelsRepo, NewSocial, SocialKind, SocialRecord } from "./repo";
+import type { ChannelsRepo, NewSocial, SocialDisconnection, SocialHealth, SocialHealthPatch, SocialKind, SocialRecord } from "./repo";
 
 const SOCIAL_COLUMNS = `id, client_id, channel, account_id, page_id, auth_type, business_id, config_id, display_name, access_token_enc, meta,
-  UNIX_TIMESTAMP(token_expires_at) AS expires_ts, UNIX_TIMESTAMP(COALESCE(connected_at, created_at)) AS connected_ts`;
+  UNIX_TIMESTAMP(token_expires_at) AS expires_ts, UNIX_TIMESTAMP(COALESCE(connected_at, created_at)) AS connected_ts,
+  health, last_error, UNIX_TIMESTAMP(health_checked_at) AS checked_ts, disconnection_info`;
 
 interface SocialRow extends RowDataPacket {
   id: number;
@@ -24,6 +25,10 @@ interface SocialRow extends RowDataPacket {
   meta: unknown;
   expires_ts: number | string | null;
   connected_ts: number | string;
+  health: SocialHealth | null;
+  last_error: string | null;
+  checked_ts: number | string | null;
+  disconnection_info: unknown;
 }
 
 interface SocialMeta {
@@ -73,6 +78,10 @@ function mapSocial(r: SocialRow): SocialRecord {
     refreshToken: decryptOrNull(meta.refreshTokenEnc),
     refreshExpiresAt: meta.refreshExpiresAt ?? null,
     connectedAt: Number(r.connected_ts),
+    health: r.health ?? "active",
+    lastError: r.last_error ?? null,
+    healthCheckedAt: r.checked_ts === null || r.checked_ts === undefined ? null : Number(r.checked_ts),
+    disconnectionInfo: r.disconnection_info ? (parseMeta(r.disconnection_info) as unknown as SocialDisconnection) : null,
   };
 }
 
@@ -160,6 +169,43 @@ class MySqlChannelsRepo implements ChannelsRepo {
        WHERE id = ?`,
       [encryptSecret(refreshToken), expiresAt, id]
     );
+  }
+
+  async updateSocialHealth(id: number, patch: SocialHealthPatch) {
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    if (patch.health !== undefined) {
+      sets.push("health = ?");
+      params.push(patch.health);
+    }
+    if (patch.lastError !== undefined) {
+      sets.push("last_error = ?");
+      params.push(patch.lastError === null ? null : patch.lastError.slice(0, 500));
+    }
+    if (patch.lastErrorAt !== undefined) {
+      sets.push("last_error_at = FROM_UNIXTIME(?)");
+      params.push(patch.lastErrorAt);
+    }
+    if (patch.healthCheckedAt !== undefined) {
+      sets.push("health_checked_at = FROM_UNIXTIME(?)");
+      params.push(patch.healthCheckedAt);
+    }
+    if (patch.disconnectionInfo !== undefined) {
+      sets.push("disconnection_info = ?");
+      params.push(patch.disconnectionInfo === null ? null : JSON.stringify(patch.disconnectionInfo));
+    }
+    if (sets.length === 0) return;
+    await getPool().query(`UPDATE web_channel_accounts SET ${sets.join(", ")} WHERE id = ?`, [...params, id]);
+  }
+
+  async listSocialForHealthCheck(beforeUnix: number) {
+    const [rows] = await getPool().query<SocialRow[]>(
+      `SELECT ${SOCIAL_COLUMNS} FROM web_channel_accounts
+       WHERE channel IN ('fb', 'ig') AND status = 'connected' AND access_token_enc IS NOT NULL
+         AND health <> 'disconnected' AND (health_checked_at IS NULL OR health_checked_at < FROM_UNIXTIME(?))`,
+      [beforeUnix]
+    );
+    return rows.map(mapSocial);
   }
 
   async listExpiring(channel: SocialKind, beforeUnix: number) {

@@ -40,6 +40,15 @@ async function socialFetch<T>(account: SocialAccount, path: string, init?: Reque
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const error = data?.error;
+    const code = typeof error?.code === "number" ? error.code : null;
+    // Token revocado o sin permisos: se marca la salud de la conexión (no frena el error).
+    // #10 con subcódigo es otra cosa (ej. 2018278 / 2534022 = fuera de la ventana de 24 h).
+    const tokenProblem = code === 190 || ((code === 10 || code === 200) && typeof error?.error_subcode !== "number");
+    if (account.source === "db" && (account.channel === "fb" || account.channel === "ig") && tokenProblem) {
+      void import("../channels/social-health").then((m) =>
+        m.reportSocialTokenError(account.channel as "fb" | "ig", account.accountId, code, error?.message ?? "")
+      );
+    }
     throw new MetaApiError(
       error?.message || `Error ${res.status} al llamar a la API de Meta`,
       res.status,

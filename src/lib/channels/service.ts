@@ -26,6 +26,7 @@ import type { WaRepo } from "../whatsapp-accounts/repo";
 import { getWaDeps } from "../whatsapp-accounts/runtime";
 import type { ChannelsRepo, SocialKind, SocialRecord } from "./repo";
 import { seal, unseal } from "./seal";
+import { describeSocialHealth } from "./social-health";
 import type { ConnectedAccount, InstagramChoice, PageChoice, ProviderId } from "./types";
 
 export { ConnectError };
@@ -66,6 +67,7 @@ export function socialAccountView(s: SocialRecord): ConnectedAccount {
     // TikTok renueva su token todos los días: lo que importa es el refresh token (1 año)
     expiresAt: s.channel === "tt" ? null : s.tokenExpiresAt,
     fromEnv: false,
+    ...(s.channel === "fb" || s.channel === "ig" ? { health: s.health ?? "active", healthMessage: describeSocialHealth(s) } : {}),
   };
 }
 

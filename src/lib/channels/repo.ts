@@ -8,6 +8,24 @@ export type SocialKind = "fb" | "ig" | "th" | "tt";
 // page: token de página (Messenger, Instagram viejo vinculado a una página).
 // ig_unified: Instagram API with Unified Login (token de usuario del sistema, sin página).
 export type SocialAuthType = "page" | "ig_unified";
+// Salud de la conexión (mismo modelo que WhatsApp). Ver src/lib/channels/social-health.ts.
+export type SocialHealth = "active" | "needs_attention" | "disconnected";
+
+export interface SocialDisconnection {
+  // TOKEN_INVALID · PERMISSIONS_MISSING
+  reason: string;
+  // graph_error: falló una llamada con el token · token_check: chequeo con debug_token
+  source: "graph_error" | "token_check";
+  at: number;
+}
+
+export interface SocialHealthPatch {
+  health?: SocialHealth;
+  lastError?: string | null;
+  lastErrorAt?: number | null;
+  healthCheckedAt?: number | null;
+  disconnectionInfo?: SocialDisconnection | null;
+}
 
 export interface SocialRecord {
   id: number;
@@ -31,9 +49,16 @@ export interface SocialRecord {
   refreshToken?: string | null;
   refreshExpiresAt?: number | null;
   connectedAt: number;
+  // Salud (Facebook e Instagram). Sin dato = active.
+  health?: SocialHealth;
+  lastError?: string | null;
+  healthCheckedAt?: number | null;
+  disconnectionInfo?: SocialDisconnection | null;
 }
 
-export type NewSocial = Omit<SocialRecord, "id" | "connectedAt" | "authType" | "businessId" | "configId"> &
+type HealthFields = "health" | "lastError" | "healthCheckedAt" | "disconnectionInfo";
+
+export type NewSocial = Omit<SocialRecord, "id" | "connectedAt" | "authType" | "businessId" | "configId" | HealthFields> &
   Partial<Pick<SocialRecord, "authType" | "businessId" | "configId">> & { connectedBy: number | null };
 
 export interface ChannelsRepo {
@@ -46,6 +71,9 @@ export interface ChannelsRepo {
   updateRefreshToken(id: number, refreshToken: string, expiresAt: number | null): Promise<void>;
   // Tokens de Threads que vencen antes de `beforeUnix` (para renovarlos)
   listExpiring(channel: SocialKind, beforeUnix: number): Promise<SocialRecord[]>;
+  updateSocialHealth(id: number, patch: SocialHealthPatch): Promise<void>;
+  // Facebook e Instagram conectados (y no ya desconectados) sin verificar desde `beforeUnix`
+  listSocialForHealthCheck(beforeUnix: number): Promise<SocialRecord[]>;
 }
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -67,7 +95,8 @@ export class MemoryChannelsRepo implements ChannelsRepo {
     const record = { authType: "page" as const, businessId: null, configId: null, ...input };
     const existing = this.social.find((x) => x.channel === record.channel && x.externalId === record.externalId);
     if (existing) {
-      Object.assign(existing, record, { active: true, connectedAt: now() });
+      // Reconectar deja la conexión sana otra vez
+      Object.assign(existing, record, { active: true, connectedAt: now(), health: "active", lastError: null, disconnectionInfo: null });
       return existing.id;
     }
     const id = this.nextId++;
@@ -92,6 +121,23 @@ export class MemoryChannelsRepo implements ChannelsRepo {
   async listExpiring(channel: SocialKind, beforeUnix: number) {
     return this.social
       .filter((s) => s.active && s.channel === channel && s.tokenExpiresAt !== null && s.tokenExpiresAt < beforeUnix)
+      .map(({ active: _a, ...s }) => s);
+  }
+  async updateSocialHealth(id: number, patch: SocialHealthPatch) {
+    const s = this.social.find((x) => x.id === id);
+    if (!s) return;
+    const { lastErrorAt: _at, ...rest } = patch;
+    Object.assign(s, Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)));
+  }
+  async listSocialForHealthCheck(beforeUnix: number) {
+    return this.social
+      .filter(
+        (s) =>
+          s.active &&
+          (s.channel === "fb" || s.channel === "ig") &&
+          s.health !== "disconnected" &&
+          (s.healthCheckedAt ?? 0) < beforeUnix
+      )
       .map(({ active: _a, ...s }) => s);
   }
 }

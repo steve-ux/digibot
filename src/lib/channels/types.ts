@@ -27,7 +27,7 @@ export interface ConnectedAccount {
   expiresAt: number | null;
   // Configurada con variables del servidor: no se desconecta desde el panel
   fromEnv: boolean;
-  // Solo WhatsApp: si la conexión funciona y por qué no
+  // WhatsApp, Facebook e Instagram: si la conexión funciona y por qué no
   health?: "active" | "needs_attention" | "disconnected";
   healthMessage?: string | null;
   coexistence?: boolean;

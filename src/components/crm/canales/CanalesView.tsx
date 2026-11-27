@@ -312,7 +312,10 @@ function Canales({
               modes={p.id === "whatsapp" ? WA_MODES : undefined}
               onPickMode={(mode) => connect(p.id, mode)}
               onReconnect={
-                p.id === "whatsapp" && !demo
+                (p.id === "facebook" || p.id === "instagram") && !demo
+                  ? // Volver a conectar la misma cuenta la deja sana otra vez
+                    () => connect(p.id)
+                  : p.id === "whatsapp" && !demo
                   ? (a) =>
                       setSignup({
                         key: Date.now(),
@@ -486,7 +489,7 @@ function ProviderCard({
                 )}
                 {a.health && a.health !== "active" && a.healthMessage && (
                   <div className={`text-xs font-semibold ${a.health === "disconnected" ? "text-crm-error" : "text-crm-warn-ink"}`}>
-                    {a.health === "disconnected" ? "WhatsApp desconectado. " : ""}
+                    {a.health === "disconnected" ? `${provider.name} desconectado. ` : ""}
                     {a.healthMessage}
                   </div>
                 )}
