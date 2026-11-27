@@ -241,18 +241,22 @@ describe("Instagram API with Unified Login", () => {
   it("si una cuenta del portfolio está limitada por Meta (#80002), igual lista las cuentas", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const limited = { error: { code: 80002, message: "There have been too many calls to this Instagram account." } };
+    const granular = [
+      { scope: "instagram_basic", target_ids: ["17841400000000001", "17841400000000002"] },
+      { scope: "instagram_manage_messages", target_ids: ["17841400000000001"] },
+    ];
     mockMeta([
       [/oauth\/access_token/, { access_token: "tok-suat" }],
-      [/debug_token/, debugIg],
+      [/debug_token/, { data: { ...debugIg.data, granular_scopes: granular } }],
       [/client_business_id/, { client_business_id: "BIZ-1" }],
-      [/assigned_instagram_accounts\?fields=id%2Cusername/, limited, 400],
-      [/assigned_instagram_accounts\?fields=id&/, { data: [{ id: "17841400000000001" }, { id: "17841400000000002" }] }],
+      [/assigned_instagram_accounts/, limited, 400],
       [/GET .*\/17841400000000001\?fields=username/, { username: "esteban_instaok", id: "17841400000000001" }],
       [/GET .*\/17841400000000002\?fields=username/, limited, 400],
     ]);
     const listed = await listInstagramAccounts(repo, CTX, "codigo-ig");
+    // Las que eligió en el diálogo (de debug_token), aunque el listado esté frenado
     expect(listed.accounts.map((a) => a.id)).toEqual(["17841400000000001", "17841400000000002"]);
-    expect(listed.accounts[0].name).toBe("@esteban_instaok");
+    expect(listed.accounts.map((a) => a.name)).toEqual(["@esteban_instaok", "Cuenta de Instagram 17841400000000002"]);
   });
 
   it("si Meta dice cuánto falta para recuperar el acceso, el mensaje lo avisa", async () => {

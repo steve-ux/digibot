@@ -116,6 +116,8 @@ export interface TokenInfo {
   type: string | null;
   scopes: string[];
   expiresAt: number | null;
+  // Ids de los activos que la persona eligió al dar cada permiso (granular_scopes.target_ids).
+  targets: Record<string, string[]>;
 }
 
 export async function inspectToken(
@@ -135,6 +137,7 @@ export async function inspectToken(
     type?: string;
     scopes?: string[];
     expires_at?: number;
+    granular_scopes?: { scope?: string; target_ids?: unknown[] }[];
   };
   if (!data.is_valid) throw new ConnectError("Meta devolvió una autorización inválida. Probá conectar de nuevo.");
   if (data.app_id && String(data.app_id) !== app.appId) {
@@ -150,7 +153,11 @@ export async function inspectToken(
     );
   }
   // expires_at 0 = no vence (token de usuario del sistema)
-  return { type: data.type ?? null, scopes, expiresAt: data.expires_at ? Number(data.expires_at) : null };
+  const targets: Record<string, string[]> = {};
+  for (const g of Array.isArray(data.granular_scopes) ? data.granular_scopes : []) {
+    if (g.scope && Array.isArray(g.target_ids)) targets[g.scope] = g.target_ids.map(String);
+  }
+  return { type: data.type ?? null, scopes, expiresAt: data.expires_at ? Number(data.expires_at) : null, targets };
 }
 
 // ---------- Páginas e Instagram ----------
@@ -231,7 +238,9 @@ export interface MetaInstagramAccount {
   pictureUrl: string | null;
 }
 
-export async function fetchAssignedInstagramAccounts(token: string): Promise<MetaInstagramAccount[]> {
+// `grantedIds`: las cuentas que la persona eligió en el diálogo de Meta (de debug_token). Se usan
+// solo si Meta frena el listado por límite.
+export async function fetchAssignedInstagramAccounts(token: string, grantedIds: string[] = []): Promise<MetaInstagramAccount[]> {
   const read = async (fields: string) => {
     const accounts: Record<string, unknown>[] = [];
     let after: string | undefined;
@@ -257,17 +266,18 @@ export async function fetchAssignedInstagramAccounts(token: string): Promise<Met
       // La doc solo garantiza id y username: si la foto no se puede pedir (#100), sin foto.
       raw = await read("id,username");
     } else if (err.httpStatus === 429) {
-      // Límite de UNA cuenta de Instagram (#80002): pedir username/foto lee cada cuenta y alcanza
-      // con que una del portfolio esté limitada para que falle todo el listado. Se piden solo los
-      // ids y después el nombre de a una, sin frenar si alguna no contesta.
-      raw = await read("id");
+      // Límite de UNA cuenta de Instagram (#80002): alcanza con que una cuenta asignada esté
+      // limitada para que Meta frene todo el listado (aunque se pidan solo ids). Las cuentas que
+      // eligió la persona ya vienen en debug_token: se usan esas y el nombre se pide de a una,
+      // sin frenar si alguna (la limitada) no contesta.
+      if (grantedIds.length === 0) throw err;
       raw = await Promise.all(
-        raw.map(async (a) => {
+        grantedIds.map(async (id) => {
           try {
-            const one = await call(graph(), `/${String(a.id)}`, { token, query: { fields: "username" } }, "");
-            return { ...a, username: one.username };
+            const one = await call(graph(), `/${id}`, { token, query: { fields: "username,profile_picture_url" } }, "");
+            return { id, username: one.username, profile_picture_url: one.profile_picture_url };
           } catch {
-            return a;
+            return { id };
           }
         })
       );

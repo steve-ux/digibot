@@ -193,7 +193,10 @@ export async function listInstagramAccounts(repo: ChannelsRepo, ctx: ConnectCont
   const token = await meta.exchangeFacebookCode(requireCode(code, "Instagram"), app);
   const info = await meta.inspectToken(token, app, meta.INSTAGRAM_SCOPES);
   const businessId = await meta.fetchClientBusinessId(token);
-  const accounts = await meta.fetchAssignedInstagramAccounts(token);
+  const granted = [
+    ...new Set([...(info.targets.instagram_basic ?? []), ...(info.targets.instagram_manage_messages ?? [])]),
+  ];
+  const accounts = await meta.fetchAssignedInstagramAccounts(token, granted);
   if (accounts.length === 0) {
     throw new ConnectError(
       "No encontramos cuentas de Instagram. Revisá que sea una cuenta profesional, que esté en tu portfolio comercial y que la hayas elegido al dar los permisos.",
@@ -206,7 +209,8 @@ export async function listInstagramAccounts(repo: ChannelsRepo, ctx: ConnectCont
     const existing = await repo.findSocial("ig", a.id);
     choices.push({
       id: a.id,
-      name: `@${a.username}`,
+      // Sin nombre cuando Meta no dejó leerlo (cuenta limitada por llamadas)
+      name: a.username === a.id ? `Cuenta de Instagram ${a.id}` : `@${a.username}`,
       pictureUrl: a.pictureUrl,
       connectedHere: existing?.accountId === ctx.accountId,
       takenElsewhere: Boolean(existing && existing.accountId !== ctx.accountId),
